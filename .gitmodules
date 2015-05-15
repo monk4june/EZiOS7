@@ -1,0 +1,9 @@
+[submodule "Checkouts/PMK"]
+	path = Checkouts/PMK
+	url = https://github.com/mxcl/PromiseKit.git
+[submodule "Checkouts/OMGHTTPURLRQ"]
+	path = Checkouts/OMGHTTPURLRQ
+	url = https://github.com/mxcl/OMGHTTPURLRQ.git
+[submodule ".checkout"]
+	path = .checkout
+	url = https://github.com/mxcl/PromiseKit.git
