@@ -13,6 +13,14 @@ PromiseKit 2 does not easily support iOS 7, sorry, but that’s just how things 
 * If your project is just Objective-C you do not need the `.swift` file.
 * Yes, git submodules is a good way to manage this depedency, but just downloading the files and adding them manually is fine too.
 
+# Please Note
+
+If you want the `NSURLConnection` categories, you will need to install [OMGHTTPURLRQ](https://github.com/mxcl/OMGHTTPURLRQ):
+
+```ruby
+pod "OMGHTTPURLRQ"
+```
+
 # Alternatively
 
 You can install PromiseKit 1.x with CocoaPods all the way back to iOS 5:
