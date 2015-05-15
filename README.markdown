@@ -4,7 +4,8 @@ PromiseKit 2 does not easily support iOS 7, sorry, but that’s just how things 
 
  1. [Download the zip](https://github.com/mxcl/PMKiOS7/archive/master.zip).
  2. Drag and drop the three `PromiseKit.*` files into your project.
- 
+ 3. Drag and drop any of the sources from the `Categories` directory that you need.
+
 # More Details
 
 * If your project is mixed Objective C and Swift do not add PromiseKit.h to your bridging header.
