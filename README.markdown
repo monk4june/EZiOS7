@@ -8,9 +8,9 @@ PromiseKit 2 does not easily support iOS 7, sorry, but that’s just how things 
 
 # More Details
 
-* If your project is mixed Objective C and Swift do not add PromiseKit.h to your bridging header.
+* If your project is mixed (Objective-C & Swift) do not add `PromiseKit.h` to your bridging header.
 * If your project is just Swift you do not need the `.h` or the `.m` files.
-* If your project is just Objective-C you do not need the `.swift` file.
+* If your project is just Objective-C you ***DO*** still need the `.swift` file.
 * Yes, git submodules is a good way to manage this depedency, but just downloading the files and adding them manually is fine too.
 
 # Please Note
