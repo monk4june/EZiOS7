@@ -20,3 +20,5 @@ You can install PromiseKit 1.x with CocoaPods all the way back to iOS 5:
 ```ruby
 pod "PromisKit", "~> 1.5"
 ```
+
+*Please note*, there is no Swift support with PromiseKit 1.x.
