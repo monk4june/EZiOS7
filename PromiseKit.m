@@ -337,6 +337,16 @@ extern id __PMKArrayWithCount(NSUInteger, ...);
 @end
 
 extern NSError *PMKProcessUnhandledException(id thrown);
+
+// TODO really this is not valid, we should instead nest the errors with NSUnderlyingError
+// since a special error subclass may be being used and we may not setup it up correctly
+// with our copy
+#define NSErrorSupplement(_err, supplements) ({ \
+    NSError *err = _err; \
+    id userInfo = err.userInfo.mutableCopy ?: [NSMutableArray new]; \
+    [userInfo addEntriesFromDictionary:supplements]; \
+    [[[err class] alloc] initWithDomain:err.domain code:err.code userInfo:userInfo]; \
+})
 #import <Foundation/NSError.h>
 
 #if !defined(SWIFT_PASTE)
@@ -747,6 +757,7 @@ static NSMethodSignature *NSMethodSignatureForBlock(id block) {
     return 0;
 }
 #import <dispatch/once.h>
+#import <Foundation/NSDictionary.h>
 #import <Foundation/NSError.h>
 #import <Foundation/NSException.h>
 #import <string.h>
@@ -754,11 +765,6 @@ static NSMethodSignature *NSMethodSignatureForBlock(id block) {
 #ifndef PMKLog
 #define PMKLog NSLog
 #endif
-
-static inline NSError *NSErrorFromNil() {
-    PMKLog(@"PromiseKit: Warning: Promise rejected with nil");
-    return [NSError errorWithDomain:PMKErrorDomain code:PMKInvalidUsageError userInfo:nil];
-}
 
 @interface PMKArray : NSObject {
 @public
@@ -1236,7 +1242,15 @@ AnyPromise *PMKJoin(NSArray *promises) {
 @end
 @import Foundation.NSDictionary;
 @import Foundation.NSError;
+@import Foundation.NSProgress;
 @import Foundation.NSNull;
+
+// NSProgress resources:
+//  * https://robots.thoughtbot.com/asynchronous-nsprogress
+//  * http://oleb.net/blog/2014/03/nsprogress/
+// NSProgress! Beware!
+//  * https://github.com/AFNetworking/AFNetworking/issues/2261
+
 
 AnyPromise *PMKWhen(id promises) {
     if (promises == nil)
@@ -1251,6 +1265,12 @@ AnyPromise *PMKWhen(id promises) {
         return [AnyPromise promiseWithValue:promises];
     }
 
+#ifndef PMKDisableProgress
+    NSProgress *progress = [NSProgress progressWithTotalUnitCount:[promises count]];
+    progress.pausable = NO;
+    progress.cancellable = NO;
+#endif
+
     PMKResolver resolve;
     AnyPromise *rootPromise = [[AnyPromise alloc] initWithResolver:&resolve];
     __block void (^fulfill)();
@@ -1263,14 +1283,15 @@ AnyPromise *PMKWhen(id promises) {
             if (!rootPromise.pending) {
                 // suppress “already resolved” log message
             } else if (IsError(value)) {
-                NSError *err = value;
-                id userInfo = err.userInfo.mutableCopy;
-                userInfo[PMKFailingPromiseIndexKey] = key;
-                //TODO add test that when etc. don't lose NSError class
-                err = [[[value class] alloc] initWithDomain:err.domain code:err.code userInfo:userInfo];
-                resolve(err);
+              #ifndef PMKDisableProgress
+                progress.completedUnitCount = progress.totalUnitCount;
+              #endif
+                resolve(NSErrorSupplement(value, @{PMKFailingPromiseIndexKey: key}));
             } else {
-                set(value);
+              #ifndef PMKDisableProgress
+                progress.completedUnitCount++;
+              #endif
+                set(promise.value);  // we use -value to unwrap PMKManifolds
                 if (--countdown == 0)
                     fulfill();
             }

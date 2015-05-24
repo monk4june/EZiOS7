@@ -4,20 +4,22 @@ class String
   end
 end
 
+# The include order here is important
+HEADERS_PRIME = %w{
+  .checkout/Sources/Umbrella.h
+  .checkout/Sources/AnyPromise.h
+  .checkout/Sources/AnyPromise+Private.h
+  .checkout/Sources/NSError+Cancellation.h
+  .checkout/Sources/PMKPromise.h
+  .checkout/Sources/PromiseKit.h
+}
+
+def all_headers
+  (HEADERS_PRIME + Dir["/.checkout/Sources/*.h"]).uniq
+end
+
 File.open("PromiseKit.swift", 'w') do |out|
-  %w{
-    .checkout/Sources/AnyPromise.swift
-    .checkout/Sources/ErrorUnhandler.swift
-    .checkout/Sources/NSJSONFromData.swift
-    .checkout/Sources/Promise+Properties.swift
-    .checkout/Sources/Promise.swift
-    .checkout/Sources/Sealant.swift
-    .checkout/Sources/State.swift
-    .checkout/Sources/after.swift
-    .checkout/Sources/dispatch_promise.swift
-    .checkout/Sources/race.swift
-    .checkout/Sources/when.swift
-  }.each do |swift_filename|
+  Dir[".checkout/Sources/*.swift"].each do |swift_filename|
     out.puts(File.read(swift_filename))
   end 
   
@@ -34,14 +36,7 @@ File.open("PromiseKit.h", 'w') do |out|
   out.puts(%Q{#pragma clang diagnostic push})
   out.puts(%Q{#pragma clang diagnostic ignored "-w"})
 
-  %w{
-    .checkout/Sources/Umbrella.h
-    .checkout/Sources/AnyPromise.h
-    .checkout/Sources/AnyPromise+Private.h
-    .checkout/Sources/NSError+Cancellation.h
-    .checkout/Sources/PMKPromise.h
-    .checkout/Sources/PromiseKit.h
-  }.each do |header|
+  all_headers.each do |header|
     File.read(header).each_line do |line|
       out.write(line) unless line.throw_away?
     end
@@ -52,19 +47,11 @@ end
 
 File.open("PromiseKit.m", 'w') do |out|
   
-  files = %w{
-    .checkout/Sources/Umbrella.h
-    .checkout/Sources/AnyPromise.h
-    .checkout/Sources/AnyPromise+Private.h
-    .checkout/Sources/NSError+Cancellation.h
-    .checkout/Sources/PMKPromise.h
-    .checkout/Sources/PromiseKit.h
+  files = HEADERS_PRIME + %w{
     .checkout/Sources/NSMethodSignatureForBlock.m
     .checkout/Sources/PMKCallVariadicBlock.m
   }
-
   files += Dir[".checkout/Sources/*.m"]
-  
   files.uniq!
   
   out.puts("@import Foundation;")
