@@ -33,8 +33,9 @@ File.open("PromiseKit.swift", 'w') do |out|
 end
 
 File.open("PromiseKit.h", 'w') do |out|
-  out.puts(%Q{#pragma clang diagnostic push})
-  out.puts(%Q{#pragma clang diagnostic ignored "-w"})
+  out.puts("#define PMKEZBake")
+  out.puts(%Q{#pragma clang diagnostic push})         # doesn't work
+  out.puts(%Q{#pragma clang diagnostic ignored "-w"}) # doesn't work
 
   all_headers.each do |header|
     File.read(header).each_line do |line|
