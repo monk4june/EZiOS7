@@ -44,8 +44,8 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
 
 #if defined(PMKEZBake) && defined(SWIFT_CLASS)
-// https://github.com/PromiseKit/EZiOS7/issues/2
-#define PMKPromise AnyPromise
+  // https://github.com/PromiseKit/EZiOS7/issues/2
+  #define PMKPromise AnyPromise
 #else
 
 __attribute__((objc_runtime_name("PMKAnyPromise")))
@@ -60,7 +60,6 @@ __attribute__((objc_subclassing_restricted))
 @compatibility_alias AnyPromise PMKPromise;
 
 #endif
-
 
 
 
