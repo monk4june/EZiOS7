@@ -108,6 +108,50 @@ private func unbox(resolution: Resolution) -> AnyObject? {
         }
     }
 
+    /**
+     @return A new AnyPromise bound to a Promise<[T]>.
+
+     The two promises represent the same task, any changes to either
+     will instantly reflect on both.
+    
+     The value is converted to an NSArray so Objective-C can use it.
+    */
+    public init<T: AnyObject>(bound: Promise<[T]>) {
+        //WARNING copy pasta from above. FIXME how?
+        var resolve: ((Resolution) -> Void)!
+        state = UnsealedState(resolver: &resolve)
+        bound.pipe { resolution in
+            switch resolution {
+            case .Fulfilled:
+                resolve(box(NSArray(array: bound.value!)))
+            case .Rejected(let error):
+                resolve(box(error))
+            }
+        }
+    }
+
+    /**
+    @return A new AnyPromise bound to a Promise<[T]>.
+
+    The two promises represent the same task, any changes to either
+    will instantly reflect on both.
+
+    The value is converted to an NSArray so Objective-C can use it.
+    */
+    public init<T: AnyObject, U: AnyObject>(bound: Promise<[T:U]>) {
+        //WARNING copy pasta from above. FIXME how?
+        var resolve: ((Resolution) -> Void)!
+        state = UnsealedState(resolver: &resolve)
+        bound.pipe { resolution in
+            switch resolution {
+            case .Fulfilled:
+                resolve(box(bound.value! as NSDictionary))
+            case .Rejected(let error):
+                resolve(box(error))
+            }
+        }
+    }
+
     convenience public init(bound: Promise<Int>) {
         self.init(bound: bound.then(on: zalgo) { NSNumber(integer: $0) })
     }
@@ -1207,6 +1251,9 @@ public func when<U, V>(pu: Promise<U>, pv: Promise<V>) -> Promise<(U, V)> {
 public func when<U, V, X>(pu: Promise<U>, pv: Promise<V>, px: Promise<X>) -> Promise<(U, V, X)> {
     return when(pu.asVoid(), pv.asVoid(), px.asVoid()).then(on: zalgo) { (pu.value!, pv.value!, px.value!) }
 }
+
+@availability(*, unavailable, message="Use `when`")
+public func join<T>(promises: Promise<T>...) {}
 let PMKErrorDomain = "PMKErrorDomain"
 let PMKFailingPromiseIndexKey = "PMKFailingPromiseIndexKey"
 let PMKURLErrorFailingURLResponseKey = "PMKURLErrorFailingURLResponseKey"
