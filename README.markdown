@@ -6,6 +6,8 @@ PromiseKit 2 does not easily support iOS 7, sorry, but that’s just how things 
  2. Drag and drop the three `PromiseKit.*` files into your project.
  3. Drag and drop any of the sources from the `Categories` directory that you need.
  
+***Please note that you will almost certainly want sources from the `Categories` directory. If you eg. are surprised that you aren’t getting any completion for promises on `NSURLConnection`, `UIAlertView` or `UIView` objects it is because you must add these sources manually from the `Categories` directory!***
+
 # More Details
 
 * If your project is mixed (Objective-C & Swift) do not add `PromiseKit.h` to your bridging header.
