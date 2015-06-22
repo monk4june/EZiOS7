@@ -1,3 +1,5 @@
+require "fileutils"
+
 class String
   def throw_away?
     self =~ /\#import \<PromiseKit\/.+\.h\>/ || self =~ /\#import ".+"/
@@ -18,6 +20,7 @@ def all_headers
   (HEADERS_PRIME + Dir["/.checkout/Sources/*.h"]).uniq
 end
 
+############################################################################## 1
 File.open("PromiseKit.swift", 'w') do |out|
   Dir[".checkout/Sources/*.swift"].each do |swift_filename|
     out.puts(File.read(swift_filename))
@@ -32,6 +35,7 @@ File.open("PromiseKit.swift", 'w') do |out|
   end
 end
 
+############################################################################## 2
 File.open("PromiseKit.h", 'w') do |out|
   out.puts("#define PMKEZBake")
   out.puts(%Q{#pragma clang diagnostic push})         # doesn't work
@@ -46,6 +50,7 @@ File.open("PromiseKit.h", 'w') do |out|
   out.puts(%Q{#pragma clang diagnostic pop})
 end
 
+############################################################################## 3
 File.open("PromiseKit.m", 'w') do |out|
   
   files = HEADERS_PRIME + %w{
@@ -62,4 +67,35 @@ File.open("PromiseKit.m", 'w') do |out|
       out.write(line) unless line.throw_away?
     end
   end
+end
+
+############################################################################## 4
+FileUtils.rm_r 'Categories', force: true
+
+Dir.chdir('.checkout') do
+
+  Dir['Categories/**/*.swift'].each do |fn|
+    FileUtils.mkpath("../#{File.dirname(fn)}")
+
+    File.open("../#{fn}", 'w') do |out|
+      File.read(fn).each_line do |line|
+        out.write(line) unless line.strip == 'import PromiseKit'
+      end
+    end
+  end
+
+  (Dir['Categories/**/*.h'] + Dir['Categories/**/*.m']).each do |fn|
+    FileUtils.mkpath("../#{File.dirname(fn)}")
+
+    File.open("../#{fn}", 'w') do |out|
+      File.read(fn).each_line do |line|
+        if line.strip.start_with? "#import <PromiseKit"
+          out.puts('#import "PromiseKit.h"')
+        else
+          out.write(line)
+        end
+      end
+    end
+  end
+
 end
