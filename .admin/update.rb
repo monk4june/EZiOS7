@@ -43,7 +43,13 @@ File.open("PromiseKit.h", 'w') do |out|
 
   all_headers.each do |header|
     File.read(header).each_line do |line|
-      out.write(line) unless line.throw_away?
+      unless line.throw_away?
+        # Older Xcodes don’t like these
+        line = line.gsub(/(__)?nonnull/, "")
+        line = line.gsub(/(__)?nullable/, "")
+
+        out.write(line)
+      end
     end
   end
 
@@ -64,7 +70,13 @@ File.open("PromiseKit.m", 'w') do |out|
   
   files.each do |header_filename|
     File.read(header_filename).each_line do |line|
-      out.write(line) unless line.throw_away?
+      unless line.throw_away?
+        # Older Xcodes don’t like these
+        line = line.gsub(/(__)?nonnull/, "")
+        line = line.gsub(/(__)?nullable/, "")
+
+        out.write(line)
+      end
     end
   end
 end
