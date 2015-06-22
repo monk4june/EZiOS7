@@ -91,7 +91,7 @@ Dir.chdir('.checkout') do
 
     File.open("../#{fn}", 'w') do |out|
       File.read(fn).each_line do |line|
-        out.write(line) unless line.strip == 'import PromiseKit'
+        out.write(line) unless line.strip == 'import PromiseKit' or line.strip == "import OMGHTTPURLRQ"
       end
     end
   end
