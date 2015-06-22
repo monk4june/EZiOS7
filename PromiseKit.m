@@ -370,8 +370,8 @@ extern NSError *PMKProcessUnhandledException(id thrown);
 #endif
 
 @interface NSError (SWIFT_EXTENSION(PromiseKit))
-+ (NSError * __nonnull)cancelledError;
-+ (void)registerCancelledErrorDomain:(NSString * __nonnull)domain code:(NSInteger)code;
++ (NSError * )cancelledError;
++ (void)registerCancelledErrorDomain:(NSString * )domain code:(NSInteger)code;
 @property (nonatomic, readonly) BOOL cancelled;
 @end
 /**
@@ -473,7 +473,7 @@ extern void (^PMKUnhandledErrorHandler)(NSError *) __attribute__((unavailable("U
         //…
     });
 */
-extern AnyPromise * __nonnull PMKAfter(NSTimeInterval duration);
+extern AnyPromise *  PMKAfter(NSTimeInterval duration);
 
 
 
@@ -505,7 +505,7 @@ extern AnyPromise * __nonnull PMKAfter(NSTimeInterval duration);
  @see PMKJoin
 
 */
-extern AnyPromise * __nonnull PMKWhen(id __nonnull input);
+extern AnyPromise *  PMKWhen(id  input);
 
 
 
@@ -532,7 +532,7 @@ extern AnyPromise * __nonnull PMKWhen(id __nonnull input);
 
  @see when
 */
-AnyPromise *__nonnull PMKJoin(NSArray * __nonnull promises);
+AnyPromise * PMKJoin(NSArray *  promises);
 
 
 
@@ -547,7 +547,7 @@ AnyPromise *__nonnull PMKJoin(NSArray * __nonnull promises);
 
  @warning T SAFE. IT IS NOT SAFE. IT IS NOT SAFE. IT IS NOT SAFE. IT IS NO
 */
-extern id __nullable PMKHang(AnyPromise * __nonnull promise);
+extern id  PMKHang(AnyPromise *  promise);
 
 
 
@@ -574,7 +574,7 @@ extern id __nullable PMKHang(AnyPromise * __nonnull promise);
 
  @return The previous unhandled error handler.
 */
-extern id __nonnull PMKSetUnhandledErrorHandler(void (^__nonnull handler)(NSError * __nonnull));
+extern id  PMKSetUnhandledErrorHandler(void (^ handler)(NSError * ));
 
 
 
@@ -602,7 +602,7 @@ extern id __nonnull PMKSetUnhandledErrorHandler(void (^__nonnull handler)(NSErro
  before any promise in the app throws an exception. Subsequent calls will
  silently fail.
 */
-extern void PMKSetUnhandledExceptionHandler(NSError * __nullable (^__nonnull handler)(id __nullable));
+extern void PMKSetUnhandledExceptionHandler(NSError *  (^ handler)(id ));
 
 
 
@@ -624,7 +624,7 @@ extern void PMKSetUnhandledExceptionHandler(NSError * __nullable (^__nonnull han
 
  @see dispatch_async
 */
-extern AnyPromise * __nonnull dispatch_promise(id __nonnull block);
+extern AnyPromise *  dispatch_promise(id  block);
 
 
 
@@ -643,7 +643,7 @@ extern AnyPromise * __nonnull dispatch_promise(id __nonnull block);
 
  @see dispatch_promise
 */
-extern AnyPromise * __nonnull dispatch_promise_on(dispatch_queue_t __nonnull queue, id __nonnull block);
+extern AnyPromise *  dispatch_promise_on(dispatch_queue_t  queue, id  block);
 
 
 
