@@ -32,7 +32,7 @@ If your project is mixed Objective-C and Swift and you need to import your gener
 If you want the `NSURLConnection` categories, you will need to install [OMGHTTPURLRQ](https://github.com/mxcl/OMGHTTPURLRQ):
 
 ```ruby
-pod "OMGHTTPURLRQ"
+pod "OMGHTTPURLRQ", "~> 2.1"
 ```
 
 If you need the Swift `NSURLConnection` category you will need to add the following to your bridging header:
