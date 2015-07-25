@@ -1,6 +1,4 @@
 #define PMKEZBake
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-w"
 #import <Foundation/NSObjCRuntime.h>
 #import <Foundation/NSString.h>
 
@@ -318,7 +316,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 #define PMKManifold(...) __PMKManifold(__VA_ARGS__, 3, 2, 1)
 #define __PMKManifold(_1, _2, _3, N, ...) __PMKArrayWithCount(N, _1, _2, _3)
 extern id __PMKArrayWithCount(NSUInteger, ...);
-@import Foundation.NSPointerArray;
+#import <Foundation/NSPointerArray.h>
 
 #if TARGET_OS_IPHONE
     #define NSPointerArrayMake(N) ({ \
@@ -438,7 +436,7 @@ typedef PMKRejecter PMKPromiseRejecter;
 
 
 
-@import Foundation.NSDate;
+#import <Foundation/NSDate.h>
 
 @interface PMKPromise (Deprecated)
 

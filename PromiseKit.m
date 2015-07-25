@@ -316,7 +316,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 #define PMKManifold(...) __PMKManifold(__VA_ARGS__, 3, 2, 1)
 #define __PMKManifold(_1, _2, _3, N, ...) __PMKArrayWithCount(N, _1, _2, _3)
 extern id __PMKArrayWithCount(NSUInteger, ...);
-@import Foundation.NSPointerArray;
+#import <Foundation/NSPointerArray.h>
 
 #if TARGET_OS_IPHONE
     #define NSPointerArrayMake(N) ({ \
@@ -436,7 +436,7 @@ typedef PMKRejecter PMKPromiseRejecter;
 
 
 
-@import Foundation.NSDate;
+#import <Foundation/NSDate.h>
 
 @interface PMKPromise (Deprecated)
 
@@ -912,8 +912,8 @@ void PMKSetUnhandledExceptionHandler(NSError *(^newHandler)(id)) {
     });
 }
 @import Dispatch;
-@import Foundation.NSDate;
-@import Foundation.NSValue;
+#import <Foundation/NSDate.h>
+#import <Foundation/NSValue.h>
 
 AnyPromise *PMKAfter(NSTimeInterval duration) {
     return [AnyPromise promiseWithResolverBlock:^(PMKResolver resolve) {
@@ -923,7 +923,7 @@ AnyPromise *PMKAfter(NSTimeInterval duration) {
         });
     }];
 }
-@import Foundation.NSKeyValueCoding;
+#import <Foundation/NSKeyValueCoding.h>
 
 NSString *const PMKErrorDomain = @"PMKErrorDomain";
 
@@ -1093,7 +1093,7 @@ AnyPromise *dispatch_promise(id block) {
 AnyPromise *dispatch_promise_on(dispatch_queue_t queue, id block) {
     return [AnyPromise promiseWithValue:nil].thenOn(queue, block);
 }
-@import CoreFoundation.CFRunLoop;
+#import <CoreFoundation/CFRunLoop.h>
 
 id PMKHang(AnyPromise *promise) {
     if (promise.pending) {
@@ -1115,9 +1115,9 @@ id PMKHang(AnyPromise *promise) {
 
     return promise.value;
 }
-@import Foundation.NSDictionary;
-@import Foundation.NSError;
-@import Foundation.NSNull;
+#import <Foundation/NSDictionary.h>
+#import <Foundation/NSError.h>
+#import <Foundation/NSNull.h>
 
 @implementation AnyPromise (join)
 
@@ -1152,7 +1152,7 @@ AnyPromise *PMKJoin(NSArray *promises) {
 }
 
 @end
-@import Foundation.NSDictionary;
+#import <Foundation/NSDictionary.h>
 
 #ifndef PMKLog
 #define PMKLog NSLog
@@ -1256,10 +1256,10 @@ AnyPromise *PMKJoin(NSArray *promises) {
 }
 
 @end
-@import Foundation.NSDictionary;
-@import Foundation.NSError;
-@import Foundation.NSProgress;
-@import Foundation.NSNull;
+#import <Foundation/NSDictionary.h>
+#import <Foundation/NSError.h>
+#import <Foundation/NSProgress.h>
+#import <Foundation/NSNull.h>
 
 // NSProgress resources:
 //  * https://robots.thoughtbot.com/asynchronous-nsprogress
