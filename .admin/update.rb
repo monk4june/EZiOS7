@@ -38,8 +38,6 @@ end
 ############################################################################## 2
 File.open("PromiseKit.h", 'w') do |out|
   out.puts("#define PMKEZBake")
-  out.puts(%Q{#pragma clang diagnostic push})         # doesn't work
-  out.puts(%Q{#pragma clang diagnostic ignored "-w"}) # doesn't work
 
   all_headers.each do |header|
     File.read(header).each_line do |line|
@@ -47,6 +45,7 @@ File.open("PromiseKit.h", 'w') do |out|
         # Older Xcodes don’t like these
         line = line.gsub(/(__)?nonnull/, "")
         line = line.gsub(/(__)?nullable/, "")
+        line = line.gsub(/@import (\w+)\.(\w+);/, '#import <\1/\2.h>')
 
         out.write(line)
       end
@@ -74,6 +73,7 @@ File.open("PromiseKit.m", 'w') do |out|
         # Older Xcodes don’t like these
         line = line.gsub(/(__)?nonnull/, "")
         line = line.gsub(/(__)?nullable/, "")
+        line = line.gsub(/@import (\w+)\.(\w+);/, '#import <\1/\2.h>')
 
         out.write(line)
       end
