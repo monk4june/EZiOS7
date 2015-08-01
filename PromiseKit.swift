@@ -70,8 +70,10 @@ private func unbox(resolution: Resolution) -> AnyObject? {
 }
 
 
+public typealias AnyPromise = PMKPromise
 
-@objc(PMKAnyPromise) public class AnyPromise: NSObject {
+
+@objc(PMKAnyPromise) public class PMKPromise: NSObject {
     var state: State
 
     /**
@@ -307,6 +309,7 @@ public func dispatch_promise<T>(on: dispatch_queue_t = dispatch_get_global_queue
         }
     }
 }
+import Dispatch
 import Foundation.NSError
 
 /**
@@ -327,8 +330,10 @@ import Foundation.NSError
  @return The previous unhandled error handler.
 */
 public var PMKUnhandledErrorHandler = { (error: NSError) -> Void in
-    if !error.cancelled {
-        NSLog("PromiseKit: Unhandled error: %@", error)
+    dispatch_async(dispatch_get_main_queue()) {
+        if !error.cancelled {
+            NSLog("PromiseKit: Unhandled error: %@", error)
+        }
     }
 }
 
@@ -410,6 +415,9 @@ extension NSError {
         cancelledErrorIdentifiers.insert(ErrorPair(domain, code))
     }
 
+    /**
+     You may only call this on the main thread.
+    */
     public var cancelled: Bool {
         return cancelledErrorIdentifiers.contains(ErrorPair(domain, code))
     }
@@ -774,8 +782,8 @@ public class Promise<T> {
             case .Fulfilled:
                 break
             case .Rejected(let error):
-                if policy == .AllErrors || !error.cancelled {
-                    dispatch_async(dispatch_get_main_queue()) {
+                dispatch_async(dispatch_get_main_queue()) {
+                    if policy == .AllErrors || !error.cancelled {
                         consume(error)
                         body(error)
                     }
