@@ -51,7 +51,7 @@ extension UIViewController {
             }
             return p
         } else {
-            return Promise(Error.NavigationControllerEmpty)
+            return Promise(error: Error.NavigationControllerEmpty)
         }
     }
 
@@ -88,13 +88,13 @@ extension UIViewController {
 
 private func promise<T>(vc: UIViewController) -> Promise<T> {
     if !vc.conformsToProtocol(Promisable) {
-        return Promise(UIViewController.Error.NotPromisable)
+        return Promise(error: UIViewController.Error.NotPromisable)
     } else if let promise = vc.valueForKeyPath("promise") as? Promise<T> {
         return promise
     } else if let _: AnyObject = vc.valueForKeyPath("promise") {
-        return Promise(UIViewController.Error.NotGenericallyPromisable)
+        return Promise(error: UIViewController.Error.NotGenericallyPromisable)
     } else {
-        return Promise(UIViewController.Error.NilPromisable)
+        return Promise(error: UIViewController.Error.NilPromisable)
     }
 }
 

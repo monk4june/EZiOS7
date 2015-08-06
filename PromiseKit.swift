@@ -163,7 +163,7 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) throws -> T) -> Promise<T> {
         return Promise(sealant: { resolve in
-            pipe { object in
+            pipe { (object: AnyObject?) in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
@@ -240,6 +240,12 @@ public enum Error: ErrorType {
      This is invalid as per the calling convention.
     */
     case DoubleOhSux0r
+
+    /**
+     A handler returned its own promise. 99% of the time, this is likely a 
+     programming error. It is also invalid per Promises/A+.
+    */
+    case ReturnedSelf
 }
 
 
@@ -637,10 +643,25 @@ public class Promise<T> {
         state = SealedState(resolution: .Fulfilled(value))
     }
 
+    @available(*, unavailable, message="T cannot conform to ErrorType")
+    public init<T: ErrorType>(_ value: T) { abort() }
+
     /**
      Create a new rejected promise.
     */
-    public init(_ error: ErrorType) {
+    public init(error: ErrorType) {
+        /**
+          Implementation note, the error label is necessary to prevent:
+
+             let p = Promise(ErrorType())
+
+          Resulting in Promise<ErrorType>. The above available annotation
+          does not help for some reason. A work-around is:
+
+             let p: Promise<Void> = Promise(ErrorType())
+        
+          But I can’t expect users to do this.
+        */
         state = SealedState(resolution: .Rejected(error, ErrorConsumptionToken(error)))
     }
 
@@ -752,11 +773,16 @@ public class Promise<T> {
                 resolve(.Rejected(error))
             case .Fulfilled(let value):
                 contain_zalgo(q, rejecter: resolve) {
-                    try body(value).pipe(resolve)
+                    let promise = try body(value)
+                    guard promise !== self else { throw Error.ReturnedSelf }
+                    promise.pipe(resolve)
                 }
             }
         }
     }
+
+    @available(*, unavailable)
+    public func then<U>(on: dispatch_queue_t = dispatch_get_main_queue(), _ body: (T) throws -> Promise<U>?) -> Promise<U> { abort() }
 
     /**
      The provided closure is executed when this Promise is resolved.
@@ -781,21 +807,14 @@ public class Promise<T> {
                 resolve(.Rejected(error))
             case .Fulfilled(let value):
                 contain_zalgo(q, rejecter: resolve) {
-                    let anypromise = try body(value)
-                    anypromise.pipe { obj in
-                        if let error = obj as? NSError {
-                            resolve(.Rejected(error, ErrorConsumptionToken(error as ErrorType)))
-                        } else {
-                            // possibly the value of this promise is a PMKManifold, if so
-                            // calling the objc `value` method will return the first item.
-                            let obj: AnyObject? = anypromise.valueForKey("value")
-                            resolve(.Fulfilled(obj))
-                        }
-                    }
+                    try body(value).pipe(resolve)
                 }
             }
         }
     }
+
+    @available(*, unavailable)
+    public func then(on: dispatch_queue_t = dispatch_get_main_queue(), body: (T) throws -> AnyPromise?) -> Promise<AnyObject?> { abort() }
 
     /**
      The provided closure is executed on the default background queue when this Promise is fulfilled.
@@ -818,6 +837,9 @@ public class Promise<T> {
     public func thenInBackground<U>(body: (T) throws -> Promise<U>) -> Promise<U> {
         return then(on: dispatch_get_global_queue(0, 0), body)
     }
+
+    @available(*, unavailable)
+    public func thenInBackground<U>(body: (T) throws -> Promise<U>?) -> Promise<U> { abort() }
 
     /**
      The provided closure is executed when this promise is rejected.
@@ -844,7 +866,7 @@ public class Promise<T> {
             switch (resolution, policy) {
             case (let .Rejected(error as CancellableErrorType, token), .AllErrorsExceptCancellation):
                 dispatch_async(dispatch_get_main_queue()) {
-                    if !error.cancelled {     // cancelled must be called main
+                    if !error.cancelled {     // cancelled must be called on main
                         consume(error, token)
                     }
                 }
@@ -862,19 +884,24 @@ public class Promise<T> {
      The provided closure is executed when this promise is rejected giving you
      an opportunity to recover from the error and continue the promise chain.
     */
-    public func recover(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: (ErrorType) -> Promise) -> Promise {
+    public func recover(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: (ErrorType) throws -> Promise) -> Promise {
         return Promise(when: self) { resolution, resolve in
             switch resolution {
             case .Rejected(let error, let token):
-                contain_zalgo(q) {
+                contain_zalgo(q, rejecter: resolve) {
                     token.consumed = true
-                    body(error).pipe(resolve)
+                    let promise = try body(error)
+                    guard promise !== self else { throw Error.ReturnedSelf }
+                    promise.pipe(resolve)
                 }
             case .Fulfilled:
                 resolve(resolution)
             }
         }
     }
+
+    @available(*, unavailable)
+    public func recover(on: dispatch_queue_t = dispatch_get_main_queue(), _ body: (ErrorType) throws -> Promise?) -> Promise { abort() }
 
     public func recover(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: (ErrorType) throws -> T) -> Promise {
         return Promise(when: self) { resolution, resolve in
@@ -913,10 +940,13 @@ public class Promise<T> {
     }
 
     @available(*, unavailable, renamed="ensure")
-    public func finally(on: dispatch_queue_t = dispatch_get_main_queue(), body: () -> Void) -> Promise { return Promise { _, _ in } }
+    public func finally(on: dispatch_queue_t = dispatch_get_main_queue(), body: () -> Void) -> Promise { abort() }
 
     @available(*, unavailable, renamed="report")
-    public func catch_(policy policy: ErrorPolicy = .AllErrorsExceptCancellation, body: () -> Void) -> Promise { return Promise { _, _ in } }
+    public func catch_(policy policy: ErrorPolicy = .AllErrorsExceptCancellation, body: () -> Void) -> Promise { abort() }
+
+    @available(*, unavailable, renamed="pendingPromise")
+    public class func defer_() -> (promise: Promise, fulfill: (T) -> Void, reject: (ErrorType) -> Void) { abort() }
 }
 
 
@@ -1031,18 +1061,92 @@ extension Promise: CustomStringConvertible {
          NSURLConnection.GET(url3)
      }
 */
-public func firstly<T>(promise: () throws -> Promise<T>) -> Promise<T> {
+public func firstly<T>(@noescape promise: () throws -> Promise<T>) -> Promise<T> {
     do {
         return try promise()
     } catch {
-        return Promise(error)
+        return Promise(error: error)
     }
+}
+
+/**
+ `firstly` can make chains more readable.
+
+ Compare:
+
+     SCNetworkReachability().then {
+         NSURLSession.GET(url2)
+     }.then {
+         NSURLSession.GET(url3)
+     }
+
+ With:
+
+     firstly {
+         SCNetworkReachability()
+     }.then {
+         NSURLSession.GET(url2)
+     }.then {
+         NSURLSession.GET(url3)
+     }
+*/
+public func firstly(@noescape promise: () throws -> AnyPromise) -> Promise<AnyObject?> {
+    return Promise { resolve in
+        try promise().pipe(resolve)
+    }
+}
+
+@available(*, unavailable, message="Instead, throw")
+public func firstly<T: ErrorType>(@noescape promise: () throws -> Promise<T>) -> Promise<T> {
+    fatalError("Unavailable function")
 }
 
 
 public enum ErrorPolicy {
     case AllErrors
     case AllErrorsExceptCancellation
+}
+
+
+extension AnyPromise {
+    private func pipe(resolve: (Resolution<AnyObject?>) -> Void) -> Void {
+        pipe { (obj: AnyObject?) in
+            if let error = obj as? NSError {
+                resolve(.Rejected(error, ErrorConsumptionToken(error)))
+            } else {
+                // possibly the value of this promise is a PMKManifold, if so
+                // calling the objc `value` method will return the first item.
+                resolve(.Fulfilled(self.valueForKey("value")))
+            }
+        }
+    }
+}
+
+
+extension Promise {
+    @available(*, unavailable, message="T cannot conform to ErrorType")
+    public convenience init<T: ErrorType>(@noescape resolvers: (fulfill: (T) -> Void, reject: (ErrorType) -> Void) throws -> Void) { abort() }
+
+    @available(*, unavailable, message="T cannot conform to ErrorType")
+    public convenience init<T: ErrorType>(@noescape resolver: ((T?, NSError?) -> Void) throws -> Void) { abort() }
+
+    @available(*, unavailable, message="T cannot conform to ErrorType")
+    public convenience init<T: ErrorType>(@noescape resolver: ((T, NSError?) -> Void) throws -> Void) { abort() }
+
+    @available(*, unavailable, message="T cannot conform to ErrorType")
+    public class func pendingPromise<T: ErrorType>() -> (promise: Promise, fulfill: (T) -> Void, reject: (ErrorType) -> Void) { abort() }
+
+    @available (*, unavailable, message="U cannot conform to ErrorType")
+    public func then<U: ErrorType>(on: dispatch_queue_t = dispatch_get_main_queue(), _ body: (T) throws -> U) -> Promise<U> { abort() }
+
+    @available (*, unavailable, message="U cannot conform to ErrorType")
+    public func then<U: ErrorType>(on: dispatch_queue_t = dispatch_get_main_queue(), _ body: (T) throws -> Promise<U>) -> Promise<U> { abort() }
+
+    @available(*, unavailable, message="U cannot conform to ErrorType")
+    public func thenInBackground<U: ErrorType>(body: (T) throws -> U) -> Promise<U> { abort() }
+
+    @available(*, unavailable, message="U cannot conform to ErrorType")
+    public func thenInBackground<U: ErrorType>(body: (T) throws -> Promise<U>) -> Promise<U> { abort() }
 }
 
 /**
