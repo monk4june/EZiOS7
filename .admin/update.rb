@@ -12,7 +12,6 @@ HEADERS_PRIME = %w{
   .checkout/Sources/AnyPromise.h
   .checkout/Sources/AnyPromise+Private.h
   .checkout/Sources/NSError+Cancellation.h
-  .checkout/Sources/PMKPromise.h
   .checkout/Sources/PromiseKit.h
 }
 
@@ -91,7 +90,7 @@ Dir.chdir('.checkout') do
 
     File.open("../#{fn}", 'w') do |out|
       File.read(fn).each_line do |line|
-        line.gsub('//PMKiOS7 ', '')
+        line.gsub!(/^( *)\/\/PMKiOS7 /, '\1')
         out.write(line) unless line.strip == 'import PromiseKit' or line.strip == "import OMGHTTPURLRQ"
       end
     end

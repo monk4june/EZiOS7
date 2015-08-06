@@ -1,4 +1,6 @@
 import StoreKit
+#if !COCOAPODS
+#endif
 
 /**
  To import the `SKRequest` category:
@@ -21,20 +23,21 @@ extension SKRequest {
 
 
 private class SKDelegate: NSObject, SKProductsRequestDelegate {
-    let (promise, fulfill, reject) = Promise<SKProductsResponse>.defer()
+    let (promise, fulfill, reject) = Promise<SKProductsResponse>.pendingPromise()
     var retainCycle: SKDelegate?
 
-    @objc func request(request: SKRequest!, didFailWithError error: NSError!) {
+    @objc func request(request: SKRequest, didFailWithError error: NSError) {
         reject(error)
         retainCycle = nil
     }
 
-    @objc func productsRequest(request: SKProductsRequest!, didReceiveResponse response: SKProductsResponse!) {
+    @objc func productsRequest(request: SKProductsRequest, didReceiveResponse response: SKProductsResponse) {
         fulfill(response)
         retainCycle = nil
     }
 
     @objc override class func initialize() {
+        //FIXME Swift can’t see SKError, so can't do CancellableErrorType
         NSError.registerCancelledErrorDomain(SKErrorDomain, code: SKErrorPaymentCancelled)
     }
 }

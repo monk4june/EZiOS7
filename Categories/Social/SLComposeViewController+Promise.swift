@@ -1,5 +1,7 @@
 import Social.SLComposeViewController
 import UIKit.UIViewController
+#if !COCOAPODS
+#endif
 
 /**
  To import this `UIViewController` category:
@@ -16,12 +18,21 @@ extension UIViewController {
         return Promise { fulfill, reject in
             vc.completionHandler = { result in
                 if result == .Cancelled {
-                    reject(NSError.cancelledError())
+                    reject(SLComposeViewController.Error.Cancelled)
                 } else {
                     fulfill()
                 }
             }
         }
     }
+}
 
+extension SLComposeViewController {
+    public enum Error: CancellableErrorType {
+        case Cancelled
+
+        public var cancelled: Bool {
+            switch self { case .Cancelled: return true }
+        }
+    }
 }

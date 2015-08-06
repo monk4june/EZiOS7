@@ -1,5 +1,7 @@
 import AVFoundation.AVAudioSession
 import Foundation
+#if !COCOAPODS
+#endif
 
 /**
  To import the `AVAudioSession` category:

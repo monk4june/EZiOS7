@@ -1,5 +1,7 @@
 import Foundation
 import UIKit.UIAlertView
+#if !COCOAPODS
+#endif
 
 /**
  To import the `UIActionSheet` category:
@@ -28,17 +30,27 @@ extension UIAlertView {
         
         return proxy.promise
     }
+
+    public enum Error: CancellableErrorType {
+        case Cancelled
+
+        public var cancelled: Bool {
+            switch self {
+                case .Cancelled: return true
+            }
+        }
+    }
 }
 
 private class PMKAlertViewDelegate: NSObject, UIAlertViewDelegate {
-    let (promise, fulfill, reject) = Promise<Int>.defer()
+    let (promise, fulfill, reject) = Promise<Int>.pendingPromise()
     var retainCycle: NSObject?
 
     @objc func alertView(alertView: UIAlertView, didDismissWithButtonIndex buttonIndex: Int) {
         if buttonIndex != alertView.cancelButtonIndex {
             fulfill(buttonIndex)
         } else {
-            reject(NSError.cancelledError())
+            reject(UIAlertView.Error.Cancelled)
         }
     }
 }

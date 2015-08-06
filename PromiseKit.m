@@ -12,6 +12,7 @@ extern NSString * const PMKErrorDomain;
 #define PMKURLErrorFailingDataKey @"PMKURLErrorFailingDataKey"
 #define PMKURLErrorFailingStringKey @"PMKURLErrorFailingStringKey"
 #define PMKJSONErrorJSONObjectKey @"PMKJSONErrorJSONObjectKey"
+#define PMKJoinPromisesKey @"PMKJoinPromisesKey"
 
 #define PMKUnexpectedError 1l
 #define PMKUnknownError 2l
@@ -22,18 +23,10 @@ extern NSString * const PMKErrorDomain;
 #define PMKJSONError 7l
 #define PMKOperationFailed 8l
 #define PMKTaskError 9l
-
-#define PMKTaskErrorLaunchPathKey @"PMKTaskErrorLaunchPathKey"
-#define PMKTaskErrorArgumentsKey @"PMKTaskErrorArgumentsKey"
-#define PMKTaskErrorStandardOutputKey @"PMKTaskErrorStandardOutputKey"
-#define PMKTaskErrorStandardErrorKey @"PMKTaskErrorStandardErrorKey"
-#define PMKTaskErrorExitStatusKey @"PMKTaskErrorExitStatusKey"
+#define PMKJoinError 10l
 
 
-#if defined(PMKEZBake) && defined(SWIFT_CLASS)
-    // https://github.com/PromiseKit/EZiOS7/issues/2
-    #define AnyPromise PMKPromise
-#else
+#if !(defined(PMKEZBake) && defined(SWIFT_CLASS))
     #if !defined(SWIFT_PASTE)
     # define SWIFT_PASTE_HELPER(x, y) x##y
     # define SWIFT_PASTE(x, y) SWIFT_PASTE_HELPER(x, y)
@@ -58,21 +51,19 @@ extern NSString * const PMKErrorDomain;
     # endif
     #endif
 
-    SWIFT_CLASS("PMKAnyPromise")
-    @interface PMKPromise : NSObject
+    SWIFT_CLASS("AnyPromise")
+    @interface AnyPromise : NSObject
     @property (nonatomic, readonly) BOOL pending;
     @property (nonatomic, readonly) BOOL resolved;
     @property (nonatomic, readonly) BOOL fulfilled;
     @property (nonatomic, readonly) BOOL rejected;
     @end
-
-    @compatibility_alias AnyPromise PMKPromise;
 #endif
 #import <dispatch/object.h>
 #import <dispatch/queue.h>
 #import <Foundation/NSObject.h>
 
-typedef void (^PMKResolver)(id);
+typedef void (^PMKResolver)(id );
 
 typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
     PMKCatchPolicyAllErrors,
@@ -113,7 +104,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @see thenOn
  @see thenInBackground
 */
-- (AnyPromise *(^)(id))then;
+- (AnyPromise *  (^ )(id ))then;
 
 
 /**
@@ -124,7 +115,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @see then
  @see thenOn
 */
-- (AnyPromise *(^)(id))thenInBackground;
+- (AnyPromise * (^ )(id ))thenInBackground;
 
 /**
  The provided block is executed on the dispatch queue of your choice when the receiver is fulfilled.
@@ -132,7 +123,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @see then
  @see thenInBackground
 */
-- (AnyPromise *(^)(dispatch_queue_t, id))thenOn;
+- (AnyPromise * (^ )(dispatch_queue_t , id ))thenOn;
 
 #ifndef __cplusplus
 /**
@@ -148,7 +139,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
  @see catchWithPolicy
 */
-- (AnyPromise *(^)(id))catch;
+- (AnyPromise * (^ )(id ))catch;
 #endif
 
 /**
@@ -158,7 +149,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
  @see catch
 */
-- (AnyPromise *(^)(PMKCatchPolicy, id))catchWithPolicy;
+- (AnyPromise * (^ )(PMKCatchPolicy, id ))catchWithPolicy;
 
 /**
  The provided block is executed when the receiver is resolved.
@@ -167,14 +158,14 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
  @see finallyOn
 */
-- (AnyPromise *(^)(dispatch_block_t))finally;
+- (AnyPromise * (^ )(dispatch_block_t ))finally;
 
 /**
  The provided block is executed on the dispatch queue of your choice when the receiver is resolved.
 
  @see finally
  */
-- (AnyPromise *(^)(dispatch_queue_t, dispatch_block_t))finallyOn;
+- (AnyPromise * (^ )(dispatch_queue_t , dispatch_block_t ))finallyOn;
 
 /**
  The value of the asynchronous task this promise represents.
@@ -190,7 +181,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @return If `resolved`, the object that was used to resolve this promise;
  if `pending`, nil.
 */
-- (id)value;
+- (id )value;
 
 /**
  Creates a resolved promise.
@@ -201,7 +192,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
  @return A resolved promise.
 */
-+ (instancetype)promiseWithValue:(id)value;
++ (instancetype )promiseWithValue:(id )value;
 
 /**
  Create a new promise that resolves with the provided block.
@@ -232,7 +223,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @see http://promisekit.org/sealing-your-own-promises/
  @see http://promisekit.org/wrapping-delegation/
 */
-+ (instancetype)promiseWithResolverBlock:(void (^)(PMKResolver resolve))resolverBlock;
++ (instancetype )promiseWithResolverBlock:(void (^ )(PMKResolver  resolve))resolverBlock;
 
 /**
  Create a new promise with an associated resolver.
@@ -256,7 +247,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
  @see promiseWithResolverBlock:
 */
-- (instancetype)initWithResolver:(PMKResolver __strong *)resolver;
+- (instancetype )initWithResolver:(PMKResolver __strong  * )resolver;
 
 @end
 
@@ -264,16 +255,16 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
 
 @interface AnyPromise (Unavailable)
 
-- (instancetype)init __attribute__((unavailable("It is illegal to create an unresolvable promise.")));
-+ (instancetype)new __attribute__((unavailable("It is illegal to create an unresolvable promise.")));
+- (instancetype )init __attribute__((unavailable("It is illegal to create an unresolvable promise.")));
++ (instancetype )new __attribute__((unavailable("It is illegal to create an unresolvable promise.")));
 
 @end
 
 
 
-typedef void (^PMKAdapter)(id, NSError *);
-typedef void (^PMKIntegerAdapter)(NSInteger, NSError *);
-typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
+typedef void (^PMKAdapter)(id , NSError * );
+typedef void (^PMKIntegerAdapter)(NSInteger, NSError * );
+typedef void (^PMKBooleanAdapter)(BOOL, NSError * );
 
 @interface AnyPromise (Adapters)
 
@@ -295,7 +286,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 
  @see http://promisekit.org/sealing-your-own-promises/
  */
-+ (instancetype)promiseWithAdapterBlock:(void (^)(PMKAdapter adapter))block;
++ (instancetype )promiseWithAdapterBlock:(void (^ )(PMKAdapter  adapter))block;
 
 /**
  Create a new promise by adapting an existing asynchronous system.
@@ -307,7 +298,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 
  @see promiseWithAdapter
  */
-+ (instancetype)promiseWithIntegerAdapterBlock:(void (^)(PMKIntegerAdapter adapter))block;
++ (instancetype )promiseWithIntegerAdapterBlock:(void (^ )(PMKIntegerAdapter  adapter))block;
 
 /**
  Create a new promise by adapting an existing asynchronous system.
@@ -316,7 +307,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 
  @see promiseWithAdapter
  */
-+ (instancetype)promiseWithBooleanAdapterBlock:(void (^)(PMKBooleanAdapter adapter))block;
++ (instancetype )promiseWithBooleanAdapterBlock:(void (^ )(PMKBooleanAdapter  adapter))block;
 
 @end
 
@@ -334,7 +325,8 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError *);
 */
 #define PMKManifold(...) __PMKManifold(__VA_ARGS__, 3, 2, 1)
 #define __PMKManifold(_1, _2, _3, N, ...) __PMKArrayWithCount(N, _1, _2, _3)
-extern id __PMKArrayWithCount(NSUInteger, ...);
+extern id  __PMKArrayWithCount(NSUInteger, ...);
+#import <Foundation/NSError.h>
 #import <Foundation/NSPointerArray.h>
 
 #if TARGET_OS_IPHONE
@@ -344,7 +336,7 @@ extern id __PMKArrayWithCount(NSUInteger, ...);
         aa; \
     })
 #else
-    static inline NSPointerArray *NSPointerArrayMake(NSUInteger count) {
+    static inline NSPointerArray *  NSPointerArrayMake(NSUInteger count) {
       #pragma clang diagnostic push
       #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         NSPointerArray *aa = [[NSPointerArray class] respondsToSelector:@selector(strongObjectsPointerArray)]
@@ -361,12 +353,11 @@ extern id __PMKArrayWithCount(NSUInteger, ...);
 
 
 @interface AnyPromise (Swift)
-- (void)pipe:(void (^)(id))body;
-- (AnyPromise *)initWithBridge:(void (^)(PMKResolver))resolver;
-+ (void)__consume:(id)obj;
+- (void)pipe:(void (^ )(id ))body;
+- (AnyPromise * )initWithBridge:(void (^ )(PMKResolver ))resolver;
 @end
 
-extern NSError *PMKProcessUnhandledException(id thrown);
+extern NSError *  PMKProcessUnhandledException(id  thrown);
 
 // TODO really this is not valid, we should instead nest the errors with NSUnderlyingError
 // since a special error subclass may be being used and we may not setup it up correctly
@@ -377,6 +368,10 @@ extern NSError *PMKProcessUnhandledException(id thrown);
     [userInfo addEntriesFromDictionary:supplements]; \
     [[[err class] alloc] initWithDomain:err.domain code:err.code userInfo:userInfo]; \
 })
+
+@interface NSError (PMKUnhandledErrorHandler)
+- (void)pmk_consume;
+@end
 #import <Foundation/NSError.h>
 
 #if !defined(SWIFT_PASTE)
@@ -393,88 +388,6 @@ extern NSError *PMKProcessUnhandledException(id thrown);
 + (void)registerCancelledErrorDomain:(NSString * )domain code:(NSInteger)code;
 @property (nonatomic, readonly) BOOL cancelled;
 @end
-/**
- This header provides some compatibility for PromiseKit 1.x’s
- PMKPromise class. It will eventually be deprecated.
-*/
-
-
-typedef void (^PMKFulfiller)(id);
-typedef void (^PMKRejecter)(NSError *);
-
-typedef PMKFulfiller PMKPromiseFulfiller;
-typedef PMKRejecter PMKPromiseRejecter;
-
-#define PMKUnderlyingExceptionKey NSUnderlyingErrorKey
-
-
-
-@interface PMKPromise (BackCompat)
-
-/**
- Create a new promise that is fulfilled or rejected with the provided
- blocks.
-
- Use this method when wrapping asynchronous code that does *not* use
- promises so that this code can be used in promise chains.
-
- Don’t use this method if you already have promises! Instead, just
- return your promise.
-
- Should you need to fulfill a promise but have no sensical value to use;
- your promise is a `void` promise: fulfill with `nil`.
-
- The block you pass is executed immediately on the calling thread.
-
- @param block The provided block is immediately executed, any exceptions that occur will be caught and cause the returned promise to be rejected.
-
-  - @param fulfill fulfills the returned promise with the provided value
-  - @param reject rejects the returned promise with the provided `NSError`
-
- @return A new promise.
-
- @see http://promisekit.org/sealing-your-own-promises/
- @see http://promisekit.org/wrapping-delegation/
-*/
-+ (instancetype)new:(void(^)(PMKFulfiller fulfill, PMKRejecter reject))block __attribute__((deprecated("Use +promiseWithResolverBlock:")));
-
-/**
- Loops until one or more promises have resolved.
-
- Because Promises are single-shot, the block to until must return one or more promises. They are then `when`’d. If they succeed the until loop is concluded. If they fail then the @param `catch` handler is executed.
-
- If the `catch` throws or returns an `NSError` then the loop is ended.
-
- If the `catch` handler returns a Promise then re-execution of the loop is suspended upon resolution of that Promise. If the Promise succeeds then the loop continues. If it fails the loop ends.
-
- An example usage is an app starting up that must get data from the Internet before the main ViewController can be shown. You can `until` the poll Promise and in the catch handler decide if the poll should be reattempted or not, perhaps returning a `UIAlertView.promise` allowing the user to choose if they continue or not.
-*/
-+ (PMKPromise *)until:(id (^)(void))blockReturningPromises catch:(id)failHandler;
-
-@end
-
-
-
-#import <Foundation/NSDate.h>
-
-@interface PMKPromise (Deprecated)
-
-+ (PMKPromise *)when:(id)input __attribute__((deprecated("Use PMKWhen()")));
-+ (PMKPromise *)pause:(NSTimeInterval)duration __attribute__((deprecated("Use PMKAfter()")));
-+ (PMKPromise *)join:(id)input __attribute__((deprecated("Use PMKJoin()")));
-
-- (PMKPromise *( ^ ) ( id ))thenUnleashZalgo __attribute__((unavailable("If you need this, open a ticket, we will provide it, I just want to say hi.")));
-
-+ (PMKPromise *)promiseWithResolver:(PMKResolver)block __attribute__((deprecated("Use +promiseWithResolverBlock:")));
-+ (instancetype)promiseWithAdapter:(void (^)(PMKAdapter adapter))block __attribute__((deprecated("Use +promiseWithAdapterBlock:")));
-+ (instancetype)promiseWithIntegerAdapter:(void (^)(PMKIntegerAdapter adapter))block __attribute__((deprecated("Use +promiseWithIntegerAdapterBlock:")));
-+ (instancetype)promiseWithBooleanAdapter:(void (^)(PMKBooleanAdapter adapter))block __attribute__((deprecated("Use +promiseWithBooleanAdapterBlock:")));
-
-@end
-
-
-
-extern void (^PMKUnhandledErrorHandler)(NSError *) __attribute__((unavailable("Use PMKSetUnhandledErrorHandler()")));
 #import <dispatch/queue.h>
 #import <Foundation/NSDate.h>
 #import <Foundation/NSObject.h>
@@ -535,11 +448,19 @@ extern AnyPromise *  PMKWhen(id  input);
 
  For example:
 
-    PMKJoin(@[promise1, promise2]).then(^(NSArray *results, NSArray *values, NSArray *errors){
+    PMKJoin(@[promise1, promise2]).then(^(NSArray *resultingValues){
         //…
-    });
+    }).catch(^(NSError *error){
+        assert(error.domain == PMKErrorDomain);
+        assert(error.code == PMKJoinError);
 
- @warning *Important* This promise is not rejectable. Thus it is up to you to propogate an error if you want any subsequent chain to continue being rejected.
+        NSArray *promises = error.userInfo[PMKJoinPromisesKey];
+        for (AnyPromise *promise in promises) {
+            if (promise.rejected) {
+                //…
+            }
+        }
+    });
 
  @param promises An array of promises.
 
@@ -567,33 +488,6 @@ AnyPromise * PMKJoin(NSArray *  promises);
  @warning T SAFE. IT IS NOT SAFE. IT IS NOT SAFE. IT IS NOT SAFE. IT IS NO
 */
 extern id  PMKHang(AnyPromise *  promise);
-
-
-
-/**
- Sets the unhandled error handler.
-
- If a promise is rejected and no catch handler is called in its chain, the
- provided handler is called. The default handler logs the error.
-
-    PMKSetUnhandledErrorHandler(^(NSError *error){
-        NSLog(@"Unhandled error: %@", error);
-    });
-
- @warning *Important* The handler is executed on an undefined queue.
- 
- @warning *Important* Don’t use promises in your handler, or you risk an
- infinite error loop.
- 
- @warning *Important* This function is totally not thread-safe and if
- some promise is already executing when you set this the results are
- undefined (though safe if you are programming safely because either
- your handler or the previous handler will be called). So do this at
- application startup and *NOWHERE ELSE!*
-
- @return The previous unhandled error handler.
-*/
-extern id  PMKSetUnhandledErrorHandler(void (^ handler)(NSError * ));
 
 
 
@@ -921,7 +815,10 @@ NSError *PMKProcessUnhandledException(id thrown) {
     });
 
     id err = PMKUnhandledExceptionHandler(thrown);
-    if (!err) @throw thrown;
+    if (!err) {
+        NSLog(@"PromiseKit no longer catches *all* exceptions. However you can change this behavior by setting a new PMKProcessUnhandledException handler.");
+        @throw thrown;
+    }
     return err;
 }
 
@@ -966,7 +863,7 @@ NSString *const PMKErrorDomain = @"PMKErrorDomain";
 }
 
 static inline AnyPromise *AnyPromiseWhen(AnyPromise *when, void(^then)(id, PMKResolver)) {
-    return [[[when class] alloc] initWithBridge:^(PMKResolver resolve){
+    return [[AnyPromise alloc] initWithBridge:^(PMKResolver resolve){
         [when pipe:^(id obj){
             then(obj, resolve);
         }];
@@ -1004,7 +901,7 @@ static inline AnyPromise *__then(AnyPromise *self, dispatch_queue_t queue, id bl
 static inline AnyPromise *__catch(AnyPromise *self, BOOL includeCancellation, id block) {
     return AnyPromiseWhen(self, ^(id obj, PMKResolver resolve) {
         if (IsError(obj) && (includeCancellation || ![obj cancelled])) {
-            [[self class] __consume:obj];
+            [obj pmk_consume];
             dispatch_async(dispatch_get_main_queue(), ^{
                 resolve(PMKCallVariadicBlock(block, obj));
             });
@@ -1093,16 +990,6 @@ static inline AnyPromise *__finally(AnyPromise *self, dispatch_queue_t queue, di
 }
 
 @end
-
-
-
-@interface AnyPromise (XP)
-+ (id)setUnhandledErrorHandler:(id)handler;
-@end
-
-id PMKSetUnhandledErrorHandler(void (^handler)(NSError *)) {
-    return [AnyPromise setUnhandledErrorHandler:handler];
-}
 @import Dispatch;
 
 AnyPromise *dispatch_promise(id block) {
@@ -1137,6 +1024,7 @@ id PMKHang(AnyPromise *promise) {
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSError.h>
 #import <Foundation/NSNull.h>
+#import <libkern/OSAtomic.h>
 
 @implementation AnyPromise (join)
 
@@ -1145,25 +1033,31 @@ AnyPromise *PMKJoin(NSArray *promises) {
         return [AnyPromise promiseWithValue:[NSError errorWithDomain:PMKErrorDomain code:PMKInvalidUsageError userInfo:@{NSLocalizedDescriptionKey: @"PMKJoin(nil)"}]];
 
     if (promises.count == 0)
-        return [AnyPromise promiseWithValue:PMKManifold(promises, promises)];
+        return [AnyPromise promiseWithValue:promises];
 
     return [AnyPromise promiseWithResolverBlock:^(PMKResolver resolve) {
         NSPointerArray *results = NSPointerArrayMake(promises.count);
-
-        __block NSUInteger x = 0;
+        __block int32_t countdown = (int32_t)promises.count;
+        __block BOOL rejected = NO;
 
         [promises enumerateObjectsUsingBlock:^(AnyPromise *promise, NSUInteger ii, BOOL *stop) {
             [promise pipe:^(id value) {
+
+                if (IsError(value)) {
+                    [value pmk_consume];
+                    rejected = YES;
+                }
+
                 [results replacePointerAtIndex:ii withPointer:(__bridge void *)(value ?: [NSNull null])];
-                if (++x == promises.count) {
-                    id apples = results.allObjects;
-                    id values = [NSMutableArray new];
-                    id errors = [NSMutableArray new];
-                    for (id apple in apples)
-                        [IsError(apple) ? errors : values addObject:apple];
-                    if ([errors count] == 0)
-                        errors = nil;
-                    resolve(PMKManifold(apples, values, errors));
+
+                if (OSAtomicDecrement32(&countdown) == 0) {
+                    if (!rejected) {
+                        resolve(results.allObjects);
+                    } else {
+                        id userInfo = @{PMKJoinPromisesKey: promises};
+                        id err = [NSError errorWithDomain:PMKErrorDomain code:PMKJoinError userInfo:userInfo];
+                        resolve(err);
+                    }
                 }
             }];
         }];
@@ -1172,120 +1066,16 @@ AnyPromise *PMKJoin(NSArray *promises) {
 
 @end
 #import <Foundation/NSDictionary.h>
-
-#ifndef PMKLog
-#define PMKLog NSLog
-#endif
-
-
-@implementation PMKPromise (BackCompat)
-
-+ (instancetype)new:(void(^)(PMKFulfiller, PMKRejecter))block {
-    return [self promiseWithResolverBlock:^(PMKResolver resolve) {
-        id rejecter = ^(id error){
-            if (error == nil) {
-                error = [NSError errorWithDomain:PMKErrorDomain code:PMKInvalidUsageError userInfo:nil];
-            } else if (IsPromise(error)) {
-                error = ((PMKPromise *)error).value;
-            }
-            if (!IsError(error)) {
-                id userInfo = @{
-                    NSLocalizedDescriptionKey: [error description],
-                    NSUnderlyingErrorKey: error
-                };
-                error = [NSError errorWithDomain:PMKErrorDomain code:PMKInvalidUsageError userInfo:userInfo];
-            }
-            resolve(error);
-        };
-
-        id fulfiller = ^(id result){
-            if (IsError(result))
-                PMKLog(@"PromiseKit: Warning: PMKFulfiller called with NSError.");
-            resolve(result);
-        };
-
-        @try {
-            block(fulfiller, rejecter);
-        } @catch (id thrown) {
-            resolve(PMKProcessUnhandledException(thrown));
-        }
-    }];
-}
-
-+ (instancetype)until:(id (^)(void))blockReturningPromises catch:(id)failHandler {
-
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Warc-retain-cycles"
-
-    return [PMKPromise promiseWithResolverBlock:^(PMKResolver resolve) {
-        __block void (^block)() = ^{
-            AnyPromise *next = PMKWhen(blockReturningPromises());
-            next.then(^(id o){
-                resolve(o);
-                block = nil;
-            });
-            next.catch(^(NSError *error){
-                [AnyPromise promiseWithValue:error].catch(failHandler).then(block).catch(^{
-                    resolve(error);
-                    block = nil;
-                });
-            });
-        };
-        block();
-    }];
-
-    #pragma clang diagnostic pop
-}
-
-@end
-
-
-
-@implementation PMKPromise (Deprecated)
-
-+ (instancetype)when:(id)input {
-    return PMKWhen(input);
-}
-
-+ (instancetype)pause:(NSTimeInterval)duration {
-    return PMKAfter(duration);
-}
-
-+ (instancetype)join:(id)input {
-    return PMKJoin(input).then(^(id a, id b, id c){
-        // preserving PMK 1.x behavior
-        return PMKManifold(b, c);
-    });
-}
-
-+ (instancetype)promiseWithResolver:(PMKResolver)block {
-    return [self promiseWithResolverBlock:block];
-}
-
-+ (instancetype)promiseWithAdapter:(void (^)(PMKAdapter adapter))block {
-    return [self promiseWithAdapterBlock:block];
-}
-
-+ (instancetype)promiseWithIntegerAdapter:(void (^)(PMKIntegerAdapter adapter))block {
-    return [self promiseWithIntegerAdapterBlock:block];
-}
-
-+ (instancetype)promiseWithBooleanAdapter:(void (^)(PMKBooleanAdapter adapter))block {
-    return [self promiseWithBooleanAdapterBlock:block];
-}
-
-@end
-#import <Foundation/NSDictionary.h>
 #import <Foundation/NSError.h>
 #import <Foundation/NSProgress.h>
 #import <Foundation/NSNull.h>
+#import <libkern/OSAtomic.h>
 
 // NSProgress resources:
 //  * https://robots.thoughtbot.com/asynchronous-nsprogress
 //  * http://oleb.net/blog/2014/03/nsprogress/
 // NSProgress! Beware!
 //  * https://github.com/AFNetworking/AFNetworking/issues/2261
-
 
 AnyPromise *PMKWhen(id promises) {
     if (promises == nil)
@@ -1304,54 +1094,57 @@ AnyPromise *PMKWhen(id promises) {
     NSProgress *progress = [NSProgress progressWithTotalUnitCount:[promises count]];
     progress.pausable = NO;
     progress.cancellable = NO;
+#else
+    struct PMKProgress {
+        int completedUnitCount;
+        int totalUnitCount;
+    };
+    __block struct PMKProgress progress;
 #endif
 
-    PMKResolver resolve;
-    AnyPromise *rootPromise = [[AnyPromise alloc] initWithResolver:&resolve];
-    __block void (^fulfill)();
+    __block int32_t countdown = (int32_t)[promises count];
+    BOOL const isdict = [promises isKindOfClass:[NSDictionary class]];
 
-    __block NSInteger countdown = [promises count];
-    void (^yield)(id, id, void(^)(id)) = ^(AnyPromise *promise, id key, void(^set)(id)) {
-        if (![promise isKindOfClass:[AnyPromise class]])
-            promise = [AnyPromise promiseWithValue:promise];
-        [promise pipe:^(id value){
-            if (!rootPromise.pending) {
-                // suppress “already resolved” log message
-            } else if (IsError(value)) {
-              #ifndef PMKDisableProgress
-                progress.completedUnitCount = progress.totalUnitCount;
-              #endif
-                resolve(NSErrorSupplement(value, @{PMKFailingPromiseIndexKey: key}));
-            } else {
-              #ifndef PMKDisableProgress
-                progress.completedUnitCount++;
-              #endif
-                set(promise.value);  // we use -value to unwrap PMKManifolds
-                if (--countdown == 0)
-                    fulfill();
-            }
-        }];
-    };
+    return [AnyPromise promiseWithResolverBlock:^(PMKResolver resolve) {
+        NSInteger index = 0;
 
-    if ([promises isKindOfClass:[NSDictionary class]]) {
-        NSMutableDictionary *results = [NSMutableDictionary new];
-        fulfill = ^{ resolve(results); };
+        for (__strong id key in promises) {
+            AnyPromise *promise = isdict ? promises[key] : key;
+            if (!isdict) key = @(index);
 
-        for (id key in promises) {
-            yield(promises[key], key, ^(id value){
-                results[key] = value;
-            });
+            if (![promise isKindOfClass:[AnyPromise class]])
+                promise = [AnyPromise promiseWithValue:promise];
+
+            [promise pipe:^(id value){
+                if (progress.fractionCompleted >= 1)
+                    return;
+
+                if (IsError(value)) {
+                    progress.completedUnitCount = progress.totalUnitCount;
+                    resolve(NSErrorSupplement(value, @{PMKFailingPromiseIndexKey: key}));
+                }
+                else if (OSAtomicDecrement32(&countdown) == 0) {
+                    progress.completedUnitCount = progress.totalUnitCount;
+
+                    id results;
+                    if (isdict) {
+                        results = [NSMutableDictionary new];
+                        for (id key in promises) {
+                            id promise = promises[key];
+                            results[key] = IsPromise(promise) ? ((AnyPromise *)promise).value : promise;
+                        }
+                    } else {
+                        results = [NSMutableArray new];
+                        for (AnyPromise *promise in promises) {
+                            id value = IsPromise(promise) ? (promise.value ?: [NSNull null]) : promise;
+                            [results addObject:value];
+                        }
+                    }
+                    resolve(results);
+                } else {
+                    progress.completedUnitCount++;
+                }
+            }];
         }
-    } else {
-        NSPointerArray *results = NSPointerArrayMake([promises count]);
-        fulfill = ^{ resolve(results.allObjects); };
-
-        [promises enumerateObjectsUsingBlock:^(id promise, NSUInteger ii, BOOL *stop) {
-            yield(promise, @(ii), ^(id value){
-                [results replacePointerAtIndex:ii withPointer:(__bridge void *)(value ?: [NSNull null])];
-            });
-        }];
-    }
-    
-    return rootPromise;
+    }];
 }

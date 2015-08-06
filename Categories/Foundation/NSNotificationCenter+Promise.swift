@@ -1,4 +1,6 @@
 import Foundation.NSNotification
+#if !COCOAPODS
+#endif
 
 /**
  To import the `NSNotificationCenter` category:
@@ -24,7 +26,7 @@ extension NSNotificationCenter {
     public class func once(name: String) -> Promise<NSNotification> {
         return Promise { fulfill, _ in
             var id: AnyObject?
-            id = NSNotificationCenter.defaultCenter().addObserverForName(name, object: nil, queue: PMKOperationQueue){ note in
+            id = NSNotificationCenter.defaultCenter().addObserverForName(name, object: nil, queue: nil){ note in
                 fulfill(note)
                 NSNotificationCenter.defaultCenter().removeObserver(id!)
             }
