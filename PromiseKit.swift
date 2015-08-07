@@ -273,6 +273,46 @@ public typealias AnyPromise = PMKPromise
             }
         }
     }
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
+    public func then(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> AnyPromise) -> Promise<AnyObject?> {
+        return Promise { fulfill, reject in
+            pipe { object in
+                if let error = object as? NSError {
+                    reject(error)
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe { object in
+                            if let error = object as? NSError {
+                                reject(error)
+                            } else {
+                                fulfill(object)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
+    public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
+        return Promise(passthru: { resolve in
+            pipe { object in
+                if let error = object as? NSError {
+                    resolve(.Rejected(error))
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe(resolve)
+                    }
+                }
+            }
+        })
+    }
 }
 
 
@@ -626,7 +666,7 @@ public class Promise<T> {
       public designated unsealed initializer! Making this convenience would be
       inefficient. Not very inefficient, but still it seems distasteful to me.
      */
-    init(passthru: ((Resolution) -> Void) -> Void) {
+    init(@noescape passthru: ((Resolution) -> Void) -> Void) {
         var resolve: ((Resolution) -> Void)!
         state = UnsealedState(resolver: &resolve)
         passthru(resolve)
@@ -986,6 +1026,12 @@ public func firstly<T>(promise: () -> Promise<T>) -> Promise<T> {
     return promise()
 }
 
+
+public enum ErrorPolicy {
+    case AllErrors
+    case AllErrorsExceptCancellation
+}
+
 public func race<T>(promises: Promise<T>...) -> Promise<T> {
     return Promise(passthru: { resolve in
         for promise in promises {
@@ -1244,15 +1290,18 @@ private func when<T>(promises: [Promise<T>]) -> Promise<Void> {
     var countdown = promises.count
     if countdown == 0 {
         fulfill()
+        return rootPromise
     }
+    let barrier = dispatch_queue_create("org.promisekit.barrier.when", DISPATCH_QUEUE_CONCURRENT)
 
     for (index, promise) in enumerate(promises) {
         promise.pipe { resolution in
-            if rootPromise.pending {
+            if !rootPromise.pending { return }
+
+            dispatch_barrier_sync(barrier) {
                 switch resolution {
                 case .Rejected(let error):
                     progress.completedUnitCount = progress.totalUnitCount
-                    //TODO PMKFailingPromiseIndexKey
                     reject(error)
                 case .Fulfilled:
                     progress.completedUnitCount++
