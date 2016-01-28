@@ -272,7 +272,7 @@ extension NSError {
     }
 
     /**
-      - Warning: You may only call this method on the main thread.
+     * You may only call this method on the main thread.
      */
     @objc public class func registerCancelledErrorDomain(domain: String, code: Int) {
         cancelledErrorIdentifiers.insert(ErrorPair(domain, code))
@@ -285,7 +285,7 @@ public protocol CancellableErrorType: ErrorType {
 
 extension NSError: CancellableErrorType {
     /**
-     - Warning: You may only call this method on the main thread.
+    * You may only call this method on the main thread.
     */
     @objc public var cancelled: Bool {
         if !NSThread.isMainThread() { NSLog("PromiseKit: Warning: `cancelled` called on background thread.") }
