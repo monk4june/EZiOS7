@@ -128,6 +128,10 @@ import Foundation.NSError
         }
     }
 
+    func this_pipe(body: (AnyObject?) -> Void) {
+        self.pipe(body)
+    }
+
     @objc var __value: AnyObject? {
         return state.get() ?? nil
     }
@@ -181,7 +185,7 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) throws -> T) -> Promise<T> {
         return Promise(sealant: { resolve in
-            pipe { object in
+            self.this_pipe { object in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
@@ -198,12 +202,12 @@ import Foundation.NSError
     */
     public func then(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> AnyPromise) -> Promise<AnyObject?> {
         return Promise { fulfill, reject in
-            pipe { object in
+            self.this_pipe { object in
                 if let error = object as? NSError {
                     reject(error)
                 } else {
                     contain_zalgo(q) {
-                        body(object).pipe { object in
+                        body(object).this_pipe { object in
                             if let error = object as? NSError {
                                 reject(error)
                             } else {
@@ -221,7 +225,7 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
         return Promise(sealant: { resolve in
-            pipe { object in
+            self.this_pipe { object in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
@@ -376,8 +380,7 @@ extension NSError {
         return NSError(domain: PMKErrorDomain, code: PMKOperationCancelled, userInfo: info)
     }
 
-    /**
-      - Warning: You may only call this method on the main thread.
+    /** You may only call this method on the main thread.
      */
     @objc public class func registerCancelledErrorDomain(domain: String, code: Int) {
         cancelledErrorIdentifiers.insert(ErrorPair(domain, code))
@@ -390,7 +393,7 @@ public protocol CancellableErrorType: ErrorType {
 
 extension NSError: CancellableErrorType {
     /**
-     - Warning: You may only call this method on the main thread.
+    You may only call this method on the main thread.
     */
     @objc public var cancelled: Bool {
         if !NSThread.isMainThread() {
