@@ -11,6 +11,7 @@ import StoreKit
  And then in your sources:
 
 */
+
 extension SKRequest {
     public func promise() -> Promise<SKProductsResponse> {
         let proxy = SKDelegate()
@@ -26,10 +27,17 @@ private class SKDelegate: NSObject, SKProductsRequestDelegate {
     let (promise, fulfill, reject) = Promise<SKProductsResponse>.pendingPromise()
     var retainCycle: SKDelegate?
 
+#if os(iOS)
     @objc func request(request: SKRequest, didFailWithError error: NSError) {
         reject(error)
         retainCycle = nil
     }
+#else
+    @objc func request(request: SKRequest, didFailWithError error: NSError?) {
+        reject(error!)
+        retainCycle = nil
+    }
+#endif
 
     @objc func productsRequest(request: SKProductsRequest, didReceiveResponse response: SKProductsResponse) {
         fulfill(response)
@@ -38,6 +46,10 @@ private class SKDelegate: NSObject, SKProductsRequestDelegate {
 
     @objc override class func initialize() {
         //FIXME Swift can’t see SKError, so can't do CancellableErrorType
-        NSError.registerCancelledErrorDomain(SKErrorDomain, code: SKErrorPaymentCancelled)
+        #if os(iOS)
+            NSError.registerCancelledErrorDomain(SKErrorDomain, code: SKErrorCode.PaymentCancelled.rawValue)
+        #else
+            NSError.registerCancelledErrorDomain(SKErrorDomain, code: SKErrorPaymentCancelled)
+        #endif
     }
 }

@@ -25,7 +25,6 @@ extern NSString * const PMKErrorDomain;
 #define PMKTaskError 9l
 #define PMKJoinError 10l
 
-
 #if !(defined(PMKEZBake) && defined(SWIFT_CLASS))
     #if !defined(SWIFT_PASTE)
     # define SWIFT_PASTE_HELPER(x, y) x##y
@@ -214,7 +213,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  @param block The provided block is immediately executed, inside the block
  call `resolve` to resolve this promise and cause any attached handlers to
  execute. If you are wrapping a delegate-based system, we recommend
- instead to use: promiseWithResolver:
+ instead to use: initWithResolver:
 
  @return A new promise.
  
@@ -233,7 +232,7 @@ typedef NS_ENUM(NSInteger, PMKCatchPolicy) {
  prefer resolverWithBlock: as the resulting code is more elegant.
 
     PMKResolver resolve;
-    AnyPromise *promise = [AnyPromise promiseWithResolver:&resolve];
+    AnyPromise *promise = [[AnyPromise alloc] initWithResolver:&resolve];
 
     // later
     resolve(@"foo");
@@ -276,7 +275,7 @@ typedef void (^PMKBooleanAdapter)(BOOL, NSError * );
  provide this convenience adapter to make wrapping such systems more
  elegant.
 
-    return [PMKPromise promiseWithAdapter:^(PMKAdapter adapter){
+    return [PMKPromise promiseWithAdapterBlock:^(PMKAdapter adapter){
         PFQuery *query = [PFQuery …];
         [query findObjectsInBackgroundWithBlock:adapter];
     }];
@@ -360,7 +359,7 @@ extern id  __PMKArrayWithCount(NSUInteger, ...);
 extern NSError *  PMKProcessUnhandledException(id  thrown);
 
 // TODO really this is not valid, we should instead nest the errors with NSUnderlyingError
-// since a special error subclass may be being used and we may not setup it up correctly
+// since a special error subclass may be being used and we may not set it up correctly
 // with our copy
 #define NSErrorSupplement(_err, supplements) ({ \
     NSError *err = _err; \
@@ -388,7 +387,11 @@ extern NSError *  PMKProcessUnhandledException(id  thrown);
 + (void)registerCancelledErrorDomain:(NSString * )domain code:(NSInteger)code;
 @property (nonatomic, readonly) BOOL cancelled;
 @end
-#import <dispatch/queue.h>
+#if defined(__cplusplus)
+  #import <dispatch/dispatch.h>
+#else
+  #import <dispatch/queue.h>
+#endif
 #import <Foundation/NSDate.h>
 #import <Foundation/NSObject.h>
 
@@ -562,7 +565,13 @@ extern AnyPromise *  dispatch_promise_on(dispatch_queue_t  queue, id  block);
 
 #define PMKJSONDeserializationOptions ((NSJSONReadingOptions)(NSJSONReadingAllowFragments | NSJSONReadingMutableContainers))
 
-#define PMKHTTPURLResponseIsJSON(rsp) [@[@"application/json", @"text/json", @"text/javascript"] containsObject:[rsp MIMEType]]
+/**
+ Really we shouldn’t assume JSON for (application|text)/(x-)javascript,
+ really we should return a String of Javascript. However in practice
+ for the apps we write it *will be* JSON. Thus if you actually want
+ a Javascript String, use the promise variant of our category functions.
+*/
+#define PMKHTTPURLResponseIsJSON(rsp) [@[@"application/json", @"text/json", @"text/javascript", @"application/x-javascript", @"application/javascript"] containsObject:[rsp MIMEType]]
 #define PMKHTTPURLResponseIsImage(rsp) [@[@"image/tiff", @"image/jpeg", @"image/gif", @"image/png", @"image/ico", @"image/x-icon", @"image/bmp", @"image/x-bmp", @"image/x-xbitmap", @"image/x-win-bitmap"] containsObject:[rsp MIMEType]]
 #define PMKHTTPURLResponseIsText(rsp) [[rsp MIMEType] hasPrefix:@"text/"]
 

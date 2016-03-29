@@ -18,7 +18,7 @@ extension UIViewController {
         proxy.retainCycle = proxy
         vc.mailComposeDelegate = proxy
         presentViewController(vc, animated: animated, completion: completion)
-        proxy.promise.ensure {
+        proxy.promise.always {
             self.dismissViewControllerAnimated(animated, completion: nil)
         }
         return proxy.promise

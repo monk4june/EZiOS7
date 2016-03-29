@@ -27,23 +27,16 @@ extension CLLocationManager {
       want to force one or the other, change this parameter from its default
       value.
      */
-    public class func promise(requestAuthorizationType: RequestAuthorizationType = .Automatic) -> Promise<CLLocation> {
-        return promiseAll(requestAuthorizationType).then(on: zalgo) { $0.last! }
-    }
-
-    /**
-      @return A new promise that fulfills with the first batch of location objects a CLLocationManager instance provides.
-     */
-    public class func promiseAll(requestAuthorizationType: RequestAuthorizationType = .Automatic) -> Promise<[CLLocation]> {
+    public class func promise(requestAuthorizationType: RequestAuthorizationType = .Automatic) -> LocationPromise {
         return promise(yielding: auther(requestAuthorizationType))
     }
 
-    private class func promise(yielding yield: (CLLocationManager) -> Void = { _ in }) -> Promise<[CLLocation]> {
+    private class func promise(yielding yield: (CLLocationManager) -> Void = { _ in }) -> LocationPromise {
         let manager = LocationManager()
         manager.delegate = manager
         yield(manager)
         manager.startUpdatingLocation()
-        manager.promise.ensure {
+        manager.promise.always {
             manager.delegate = nil
             manager.stopUpdatingLocation()
         }
@@ -52,15 +45,16 @@ extension CLLocationManager {
 }
 
 private class LocationManager: CLLocationManager, CLLocationManagerDelegate {
-    let (promise, fulfill, reject) = Promise<[CLLocation]>.pendingPromise()
+    let (promise, fulfill, reject) = LocationPromise.foo()
 
 #if os(iOS)
     @objc func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         fulfill(locations)
     }
 #else
-    @objc func locationManager(manager: CLLocationManager, didUpdateLocations locations: [AnyObject]) {
-        fulfill(locations as! [CLLocation])
+    @objc func locationManager(manager: CLLocationManager, didUpdateLocations ll: [AnyObject]) {
+        let locations = ll as! [CLLocation]
+        fulfill(locations)
     }
 #endif
 
@@ -110,10 +104,10 @@ private class AuthorizationCatcher: CLLocationManager, CLLocationManagerDelegate
     }
 }
 
-private func auther(requestAuthorizationType: CLLocationManager.RequestAuthorizationType)(manager: CLLocationManager) {
+private func auther(requestAuthorizationType: CLLocationManager.RequestAuthorizationType) -> (CLLocationManager -> Void) {
 
     guard #available(iOS 8, *) else { return }
-
+    return { manager in
     func hasInfoPListKey(key: String) -> Bool {
         let value = NSBundle.mainBundle().objectForInfoDictionaryKey(key) as? String ?? ""
         return !value.isEmpty
@@ -137,9 +131,39 @@ private func auther(requestAuthorizationType: CLLocationManager.RequestAuthoriza
         break
 
     }
+    }
 }
 
 #else
-    private func auther(requestAuthorizationType: CLLocationManager.RequestAuthorizationType)(manager: CLLocationManager)
-    {}
+    private func auther(requestAuthorizationType: CLLocationManager.RequestAuthorizationType) -> (CLLocationManager -> Void)
+    {
+        return { _ in }
+    }
 #endif
+
+
+public class LocationPromise: Promise<CLLocation> {
+
+    // convoluted for concurrency guarantees
+
+    private let (parentPromise, fulfill, reject) = Promise<[CLLocation]>.pendingPromise()
+
+    public func allResults() -> Promise<[CLLocation]> {
+        return parentPromise
+    }
+
+    private class func foo() -> (LocationPromise, ([CLLocation]) -> Void, (ErrorType) -> Void) {
+        var fulfill: ((CLLocation) -> Void)!
+        var reject: ((ErrorType) -> Void)!
+        let promise = LocationPromise { fulfill = $0; reject = $1 }
+
+        promise.parentPromise.then(on: zalgo) { fulfill($0.last!) }
+        promise.parentPromise.error { reject($0) }
+
+        return (promise, promise.fulfill, promise.reject)
+    }
+
+    private override init(@noescape resolvers: (fulfill: (CLLocation) -> Void, reject: (ErrorType) -> Void) throws -> Void) {
+        super.init(resolvers: resolvers)
+    }
+}

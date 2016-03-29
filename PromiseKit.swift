@@ -71,12 +71,30 @@ import Foundation.NSError
     }
 
     /**
+     - Returns: A new AnyPromise bound to a `Promise<String>`.
+     The two promises represent the same task, any changes to either will instantly reflect on both.
+     The value is converted to an NSString so Objective-C can use it.
+     */
+    convenience public init(bound: Promise<String>) {
+        self.init(bound: bound.then(on: zalgo) { NSString(string: $0) })
+    }
+
+    /**
      - Returns: A new AnyPromise bound to a `Promise<Int>`.
      The two promises represent the same task, any changes to either will instantly reflect on both.
      The value is converted to an NSNumber so Objective-C can use it.
     */
     convenience public init(bound: Promise<Int>) {
         self.init(bound: bound.then(on: zalgo) { NSNumber(integer: $0) })
+    }
+
+    /**
+     - Returns: A new AnyPromise bound to a `Promise<Bool>`.
+     The two promises represent the same task, any changes to either will instantly reflect on both.
+     The value is converted to an NSNumber so Objective-C can use it.
+     */
+    convenience public init(bound: Promise<Bool>) {
+        self.init(bound: bound.then(on: zalgo) { NSNumber(bool: $0) })
     }
 
     /**
@@ -163,12 +181,52 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) throws -> T) -> Promise<T> {
         return Promise(sealant: { resolve in
-            pipe { (object: AnyObject?) in
+            pipe { object in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
                     contain_zalgo(q, rejecter: resolve) {
                         resolve(.Fulfilled(try body(self.valueForKey("value"))))
+                    }
+                }
+            }
+        })
+    }
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
+    public func then(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> AnyPromise) -> Promise<AnyObject?> {
+        return Promise { fulfill, reject in
+            pipe { object in
+                if let error = object as? NSError {
+                    reject(error)
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe { object in
+                            if let error = object as? NSError {
+                                reject(error)
+                            } else {
+                                fulfill(object)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
+    public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
+        return Promise(sealant: { resolve in
+            pipe { object in
+                if let error = object as? NSError {
+                    resolve(.Rejected(error, error.token))
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe(resolve)
                     }
                 }
             }
@@ -248,6 +306,53 @@ public enum Error: ErrorType {
     case ReturnedSelf
 }
 
+public enum URLError: ErrorType {
+    /**
+     The URLRequest succeeded but a valid UIImage could not be decoded from
+     the data that was received.
+    */
+    case InvalidImageData(NSURLRequest, NSData)
+
+    /**
+     An NSError was received from an underlying Cocoa function.
+     FIXME sucks?
+    */
+    case UnderlyingCocoaError(NSURLRequest, NSData?, NSURLResponse?, NSError)
+
+    /**
+     The HTTP request returned a non-200 status code.
+    */
+    case BadResponse(NSURLRequest, NSData?, NSURLResponse?)
+
+    /**
+     The data could not be decoded using the encoding specified by the HTTP
+     response headers.
+    */
+    case StringEncoding(NSURLRequest, NSData, NSURLResponse)
+
+    /**
+     Usually the `NSURLResponse` is actually an `NSHTTPURLResponse`, if so you
+     can access it using this property. Since it is returned as an unwrapped
+     optional: be sure.
+    */
+    public var NSHTTPURLResponse: Foundation.NSHTTPURLResponse! {
+        switch self {
+        case .InvalidImageData:
+            return nil
+        case .UnderlyingCocoaError(_, _, let rsp, _):
+            return rsp as! Foundation.NSHTTPURLResponse
+        case .BadResponse(_, _, let rsp):
+            return rsp as! Foundation.NSHTTPURLResponse
+        case .StringEncoding(_, _, let rsp):
+            return rsp as! Foundation.NSHTTPURLResponse
+        }
+    }
+}
+
+public enum JSONError: ErrorType {
+    case UnexpectedRootNode(AnyObject)
+}
+
 
 //////////////////////////////////////////////////////////// Cancellation
 private struct ErrorPair: Hashable {
@@ -266,13 +371,13 @@ private func ==(lhs: ErrorPair, rhs: ErrorPair) -> Bool {
 }
 
 extension NSError {
-    @objc class func cancelledError() -> NSError {
+    @objc public class func cancelledError() -> NSError {
         let info: [NSObject: AnyObject] = [NSLocalizedDescriptionKey: "The operation was cancelled"]
         return NSError(domain: PMKErrorDomain, code: PMKOperationCancelled, userInfo: info)
     }
 
     /**
-     * You may only call this method on the main thread.
+      - Warning: You may only call this method on the main thread.
      */
     @objc public class func registerCancelledErrorDomain(domain: String, code: Int) {
         cancelledErrorIdentifiers.insert(ErrorPair(domain, code))
@@ -285,10 +390,12 @@ public protocol CancellableErrorType: ErrorType {
 
 extension NSError: CancellableErrorType {
     /**
-    * You may only call this method on the main thread.
+     - Warning: You may only call this method on the main thread.
     */
     @objc public var cancelled: Bool {
-        if !NSThread.isMainThread() { NSLog("PromiseKit: Warning: `cancelled` called on background thread.") }
+        if !NSThread.isMainThread() {
+            NSLog("PromiseKit: Warning: `cancelled` called on background thread.")
+        }
 
         return cancelledErrorIdentifiers.contains(ErrorPair(domain, code))
     }
@@ -356,6 +463,11 @@ private var handle: UInt8 = 0
 
 extension NSError {
     @objc func pmk_consume() {
+        // The association could be nil if the objc_setAssociatedObject
+        // has taken a *really* long time. Or perhaps the user has
+        // overused `zalgo`. Thus we ignore it. This is an unlikely edge
+        // case and the unhandled-error feature is not mission-critical.
+
         if let token = objc_getAssociatedObject(self, &handle) as? ErrorConsumptionToken {
             token.consumed = true
         }
@@ -366,7 +478,8 @@ extension NSError {
     }
 }
 
-func unconsume(error error: NSError, var reusingToken token: ErrorConsumptionToken? = nil) {
+func unconsume(error error: NSError, reusingToken t: ErrorConsumptionToken? = nil) {
+    var token = t
     if token != nil {
         objc_setAssociatedObject(error, &handle, token, .OBJC_ASSOCIATION_RETAIN)
     } else {
@@ -387,7 +500,7 @@ import Dispatch
 
      join(promise1, promise2, promise3).then { results in
          //…
-     }.report { error in
+     }.error { error in
          switch error {
          case Error.Join(let promises):
              //…
@@ -397,6 +510,12 @@ import Dispatch
  - Returns: A new promise that resolves once all the provided promises resolve.
 */
 public func join<T>(promises: Promise<T>...) -> Promise<[T]> {
+    return join(promises)
+}
+
+public func join<T>(promises: [Promise<T>]) -> Promise<[T]> {
+    guard !promises.isEmpty else { return Promise<[T]>([]) }
+  
     var countdown = promises.count
     let barrier = dispatch_queue_create("org.promisekit.barrier.join", DISPATCH_QUEUE_CONCURRENT)
     var rejected = false
@@ -409,8 +528,8 @@ public func join<T>(promises: Promise<T>...) -> Promise<[T]> {
                         token.consumed = true  // the parent Error.Join consumes all
                         rejected = true
                     }
-
-                    if --countdown == 0 {
+                    countdown -= 1
+                    if countdown == 0 {
                         if rejected {
                             reject(Error.Join(promises))
                         } else {
@@ -420,35 +539,6 @@ public func join<T>(promises: Promise<T>...) -> Promise<[T]> {
                 }
             }
         }
-    }
-}
-import Foundation
-
-public enum JSONError: ErrorType {
-    case UnexpectedRootNode(AnyObject)
-}
-
-private func b0rkedEmptyRailsResponse() -> NSData {
-    return NSData(bytes: " ", length: 1)
-}
-
-public func NSJSONFromData(data: NSData) throws -> NSArray {
-    if data == b0rkedEmptyRailsResponse() {
-        return NSArray()
-    } else {
-        let json = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
-        guard let dict = json as? NSArray else { throw JSONError.UnexpectedRootNode(json) }
-        return dict
-    }
-}
-
-public func NSJSONFromData(data: NSData) throws -> NSDictionary {
-    if data == b0rkedEmptyRailsResponse() {
-        return NSDictionary()
-    } else {
-        let json = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
-        guard let dict = json as? NSDictionary else { throw JSONError.UnexpectedRootNode(json) }
-        return dict
     }
 }
 extension Promise {
@@ -569,17 +659,20 @@ public class Promise<T> {
      - SeeAlso: http://promisekit.org/wrapping-delegation/
      - SeeAlso: init(resolver:)
     */
-    public convenience init(@noescape resolvers: (fulfill: (T) -> Void, reject: (ErrorType) -> Void) throws -> Void) {
-        self.init(sealant: { resolve in
-            var counter: Int32 = 0  // can’t use `pending` as we are still initializing
+    public init(@noescape resolvers: (fulfill: (T) -> Void, reject: (ErrorType) -> Void) throws -> Void) {
+        var resolve: ((Resolution<T>) -> Void)!
+        state = UnsealedState(resolver: &resolve)
+        do {
             try resolvers(fulfill: { resolve(.Fulfilled($0)) }, reject: { error in
-                if OSAtomicIncrement32(&counter) == 1 {
+                if self.pending {
                     resolve(.Rejected(error, ErrorConsumptionToken(error)))
                 } else {
                     NSLog("PromiseKit: Warning: reject called on already rejected Promise: %@", "\(error)")
                 }
             })
-        })
+        } catch {
+            resolve(.Rejected(error, ErrorConsumptionToken(error)))
+        }
     }
 
     /**
@@ -628,7 +721,7 @@ public class Promise<T> {
         self.init(sealant: { resolve in
             try resolver { obj, err in
                 if let err = err {
-                    resolve(.Rejected(err, ErrorConsumptionToken(err as ErrorType)))
+                    resolve(.Rejected(err, ErrorConsumptionToken(err)))
                 } else {
                     resolve(.Fulfilled(obj))
                 }
@@ -655,7 +748,7 @@ public class Promise<T> {
 
              let p = Promise(ErrorType())
 
-          Resulting in Promise<ErrorType>. The above available annotation
+          Resulting in Promise<ErrorType>. The above @available annotation
           does not help for some reason. A work-around is:
 
              let p: Promise<Void> = Promise(ErrorType())
@@ -665,6 +758,11 @@ public class Promise<T> {
         state = SealedState(resolution: .Rejected(error, ErrorConsumptionToken(error)))
     }
 
+    /**
+     Careful with this, it is imperative that sealant can only be called once
+     or you will end up with spurious unhandled-errors due to possible double
+     rejections and thus immediately deallocated ErrorConsumptionTokens.
+    */
     init(@noescape sealant: ((Resolution<T>) -> Void) throws -> Void) {
         var resolve: ((Resolution<T>) -> Void)!
         state = UnsealedState(resolver: &resolve)
@@ -674,6 +772,17 @@ public class Promise<T> {
             resolve(.Rejected(error, ErrorConsumptionToken(error)))
         }
     }
+
+    /**
+     A `typealias` for the return values of `pendingPromise()`. Simplifies declaration of properties that reference the values' containing tuple when this is necessary. For example, when working with multiple `pendingPromise()`s within the same scope, or when the promise initialization must occur outside of the caller's initialization.
+
+         class Foo: BarDelegate {
+            var pendingPromise: Promise<Int>.PendingPromise?
+         }
+
+     - SeeAlso: pendingPromise()
+     */
+    public typealias PendingPromise = (promise: Promise, fulfill: (T) -> Void, reject: (ErrorType) -> Void)
 
     /**
      Making promises that wrap asynchronous delegation systems or other larger asynchronous systems without a simple completion handler is easier with pendingPromise.
@@ -695,7 +804,7 @@ public class Promise<T> {
        2) A function that fulfills that promise
        3) A function that rejects that promise
     */
-    public class func pendingPromise() -> (promise: Promise, fulfill: (T) -> Void, reject: (ErrorType) -> Void) {
+    public class func pendingPromise() -> PendingPromise {
         var fulfill: ((T) -> Void)!
         var reject: ((ErrorType) -> Void)!
         let promise = Promise { fulfill = $0; reject = $1 }
@@ -741,7 +850,7 @@ public class Promise<T> {
         return Promise<U>(when: self) { resolution, resolve in
             switch resolution {
             case .Rejected(let error):
-                resolve(.Rejected(error))
+                resolve(.Rejected((error.0, error.1)))
             case .Fulfilled(let value):
                 contain_zalgo(q, rejecter: resolve) {
                     resolve(.Fulfilled(try body(value)))
@@ -770,7 +879,7 @@ public class Promise<T> {
         return Promise<U>(when: self) { resolution, resolve in
             switch resolution {
             case .Rejected(let error):
-                resolve(.Rejected(error))
+                resolve(.Rejected((error.0, error.1)))
             case .Fulfilled(let value):
                 contain_zalgo(q, rejecter: resolve) {
                     let promise = try body(value)
@@ -804,7 +913,7 @@ public class Promise<T> {
         return Promise<AnyObject?>(when: self) { resolution, resolve in
             switch resolution {
             case .Rejected(let error):
-                resolve(.Rejected(error))
+                resolve(.Rejected((error.0, error.1)))
             case .Fulfilled(let value):
                 contain_zalgo(q, rejecter: resolve) {
                     try body(value).pipe(resolve)
@@ -855,7 +964,7 @@ public class Promise<T> {
      - Parameter body: The handler to execute if this promise is rejected.
      - SeeAlso: `registerCancellationError`
     */
-    public func report(policy policy: ErrorPolicy = .AllErrorsExceptCancellation, _ body: (ErrorType) -> Void) {
+    public func error(policy policy: ErrorPolicy = .AllErrorsExceptCancellation, _ body: (ErrorType) -> Void) {
         
         func consume(error: ErrorType, _ token: ErrorConsumptionToken) {
             token.consumed = true
@@ -864,10 +973,11 @@ public class Promise<T> {
 
         pipe { resolution in
             switch (resolution, policy) {
-            case (let .Rejected(error as CancellableErrorType, token), .AllErrorsExceptCancellation):
+            case (let .Rejected(error, token), .AllErrorsExceptCancellation):
                 dispatch_async(dispatch_get_main_queue()) {
-                    if !error.cancelled {     // cancelled must be called on main
+                    guard let cancellableError = error as? CancellableErrorType where cancellableError.cancelled else {
                         consume(error, token)
+                        return
                     }
                 }
             case (let .Rejected(error, token), _):
@@ -923,14 +1033,14 @@ public class Promise<T> {
          UIApplication.sharedApplication().networkActivityIndicatorVisible = true
          somePromise().then {
              //…
-         }.ensure {
+         }.always {
              UIApplication.sharedApplication().networkActivityIndicatorVisible = false
          }
 
      - Parameter on: The queue on which body should be executed.
      - Parameter body: The closure that is executed when this Promise is resolved.
     */
-    public func ensure(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: () -> Void) -> Promise {
+    public func always(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: () -> Void) -> Promise {
         return Promise(when: self) { resolution, resolve in
             contain_zalgo(q) {
                 body()
@@ -947,6 +1057,12 @@ public class Promise<T> {
 
     @available(*, unavailable, renamed="pendingPromise")
     public class func defer_() -> (promise: Promise, fulfill: (T) -> Void, reject: (ErrorType) -> Void) { abort() }
+
+    @available(*, deprecated, renamed="error")
+    public func report(policy policy: ErrorPolicy = .AllErrorsExceptCancellation, _ body: (ErrorType) -> Void) { error(policy: policy, body) }
+
+    @available(*, deprecated, renamed="always")
+    public func ensure(on q: dispatch_queue_t = dispatch_get_main_queue(), _ body: () -> Void) -> Promise { return always(on: q, body) }
 }
 
 
@@ -1148,6 +1264,7 @@ extension Promise {
     @available(*, unavailable, message="U cannot conform to ErrorType")
     public func thenInBackground<U: ErrorType>(body: (T) throws -> Promise<U>) -> Promise<U> { abort() }
 }
+import Foundation.NSError
 
 /**
  Resolves with the first resolving promise from a set of promises.
@@ -1162,6 +1279,16 @@ extension Promise {
  - Warning: If any of the provided promises reject, the returned promise is rejected.
 */
 public func race<T>(promises: Promise<T>...) -> Promise<T> {
+    return try! race(promises)  // race only throws when the array param is empty, which is not possible from this
+                                // variadic paramater version, so we can safely use `try!`
+}
+
+public func race<T>(promises: [Promise<T>]) throws -> Promise<T> {
+    guard !promises.isEmpty else {
+        let message = "Cannot race with an empty list of runners (Promises)"
+        throw NSError(domain: PMKErrorDomain, code: PMKInvalidUsageError, userInfo: ["messaage": message])
+    }
+  
     return Promise(sealant: { resolve in
         for promise in promises {
             promise.pipe(resolve)
@@ -1324,11 +1451,116 @@ extension SealedState: CustomStringConvertible {
         return "SealedState: \(resolution)"
     }
 }
+import Foundation
+
+public enum Encoding {
+    case JSON(NSJSONReadingOptions)
+}
+
+public class URLDataPromise: Promise<NSData> {
+    public func asDataAndResponse() -> Promise<(NSData, NSURLResponse)> {
+        return then(on: zalgo) { ($0, self.URLResponse) }
+    }
+
+    public func asString() -> Promise<String> {
+        return then(on: waldo) { data -> String in
+            guard let str = NSString(data: data, encoding: self.URLResponse.stringEncoding ?? NSUTF8StringEncoding) else {
+                throw URLError.StringEncoding(self.URLRequest, data, self.URLResponse)
+            }
+            return str as String
+        }
+    }
+
+    public func asArray(encoding: Encoding = .JSON(.AllowFragments)) -> Promise<NSArray> {
+        return then(on: waldo) { data -> NSArray in
+            switch encoding {
+            case .JSON(let options):
+                guard !data.b0rkedEmptyRailsResponse else { return NSArray() }
+                let json = try NSJSONSerialization.JSONObjectWithData(data, options: options)
+                guard let array = json as? NSArray else { throw JSONError.UnexpectedRootNode(json) }
+                return array
+            }
+        }
+    }
+
+    public func asDictionary(encoding: Encoding = .JSON(.AllowFragments)) -> Promise<NSDictionary> {
+        return then(on: waldo) { data -> NSDictionary in
+            switch encoding {
+            case .JSON(let options):
+                guard !data.b0rkedEmptyRailsResponse else { return NSDictionary() }
+                let json = try NSJSONSerialization.JSONObjectWithData(data, options: options)
+                guard let dict = json as? NSDictionary else { throw JSONError.UnexpectedRootNode(json) }
+                return dict
+            }
+        }
+    }
+
+    private override init(@noescape resolvers: (fulfill: (NSData) -> Void, reject: (ErrorType) -> Void) throws -> Void) {
+        super.init(resolvers: resolvers)
+    }
+
+    public override init(error: ErrorType) {
+        super.init(error: error)
+    }
+
+    private var URLRequest: NSURLRequest!
+    private var URLResponse: NSURLResponse!
+
+    public class func go(request: NSURLRequest, @noescape body: ((NSData?, NSURLResponse?, NSError?) -> Void) -> Void) -> URLDataPromise {
+        var promise: URLDataPromise!
+        promise = URLDataPromise { fulfill, reject in
+            body { data, rsp, error in
+                promise.URLRequest = request
+                promise.URLResponse = rsp
+
+                if let error = error {
+                    reject(URLError.UnderlyingCocoaError(request, data, rsp, error))
+                } else if let data = data, rsp = rsp as? NSHTTPURLResponse where rsp.statusCode >= 200 && rsp.statusCode < 300 {
+                    fulfill(data)
+                } else if let data = data where !(rsp is NSHTTPURLResponse) {
+                    fulfill(data)
+                } else {
+                    reject(URLError.BadResponse(request, data, rsp))
+                }
+            }
+        }
+        return promise
+    }
+}
+
+#if os(iOS)
+    import UIKit.UIImage
+
+    extension URLDataPromise {
+        public func asImage() -> Promise<UIImage> {
+            return then(on: waldo) { data -> UIImage in
+                guard let img = UIImage(data: data), cgimg = img.CGImage else {
+                    throw URLError.InvalidImageData(self.URLRequest, data)
+                }
+                return UIImage(CGImage: cgimg, scale: img.scale, orientation: img.imageOrientation)
+            }
+        }
+    }
+#endif
+
+extension NSURLResponse {
+    private var stringEncoding: UInt? {
+        guard let encodingName = textEncodingName else { return nil }
+        let encoding = CFStringConvertIANACharSetNameToEncoding(encodingName)
+        guard encoding != kCFStringEncodingInvalidId else { return nil }
+        return CFStringConvertEncodingToNSStringEncoding(encoding)
+    }
+}
+
+extension NSData {
+    private var b0rkedEmptyRailsResponse: Bool {
+        return self == NSData(bytes: " ", length: 1)
+    }
+}
 import Foundation.NSProgress
 
-private func when<T>(promises: [Promise<T>]) -> Promise<Void> {
-    guard promises.count > 0 else { return Promise() }
-
+private func _when<T>(promises: [Promise<T>]) -> Promise<Void> {
+    let (rootPromise, fulfill, reject) = Promise<Void>.pendingPromise()
 #if !PMKDisableProgress
     let progress = NSProgress(totalUnitCount: Int64(promises.count))
     progress.cancellable = false
@@ -1337,25 +1569,27 @@ private func when<T>(promises: [Promise<T>]) -> Promise<Void> {
     var progress: (completedUnitCount: Int, totalUnitCount: Int) = (0, 0)
 #endif
     var countdown = promises.count
+    if countdown == 0 {
+        fulfill()
+        return rootPromise
+    }
     let barrier = dispatch_queue_create("org.promisekit.barrier.when", DISPATCH_QUEUE_CONCURRENT)
-
-    let (rootPromise, fulfill, reject) = Promise<Void>.pendingPromise()
 
     for (index, promise) in promises.enumerate() {
         promise.pipe { resolution in
             dispatch_barrier_sync(barrier) {
                 switch resolution {
                 case .Rejected(let error, let token):
-                    token.consumed = true  // all errors are consumed by the parent Error.When
+                    token.consumed = true   // all errors are consumed by the parent Error.When
                     if rootPromise.pending {
                         progress.completedUnitCount = progress.totalUnitCount
                         reject(Error.When(index, error))
                     }
                 case .Fulfilled:
                     guard rootPromise.pending else { return }
-
-                    progress.completedUnitCount++
-                    if --countdown == 0 {
+                    progress.completedUnitCount += 1
+                    countdown -= 1
+                    if countdown == 0 {
                         fulfill()
                     }
                 }
@@ -1373,7 +1607,7 @@ private func when<T>(promises: [Promise<T>]) -> Promise<Void> {
 
      when(promise1, promise2).then { results in
          //…
-     }.report { error in
+     }.error { error in
          switch error {
          case Error.When(let index, NSURLError.NoConnection):
              //…
@@ -1384,12 +1618,12 @@ private func when<T>(promises: [Promise<T>]) -> Promise<Void> {
 
  - Warning: If *any* of the provided promises reject, the returned promise is immediately rejected with that promise’s rejection. The error’s `userInfo` object is supplemented with `PMKFailingPromiseIndexKey`.
  - Warning: In the event of rejection the other promises will continue to resolve and, as per any other promise, will either fulfill or reject. This is the right pattern for `getter` style asynchronous tasks, but often for `setter` tasks (eg. storing data on a server), you most likely will need to wait on all tasks and then act based on which have succeeded and which have failed, in such situations use `join`.
- - Parameter promises: The promies upon which to wait before the returned promise resolves.
+ - Parameter promises: The promises upon which to wait before the returned promise resolves.
  - Returns: A new promise that resolves when all the provided promises fulfill or one of the provided promises rejects.
  - SeeAlso: `join()`
 */
 public func when<T>(promises: [Promise<T>]) -> Promise<[T]> {
-    return when(promises).then(on: zalgo) { promises.map{ $0.value! } }
+    return _when(promises).then(on: zalgo) { promises.map{ $0.value! } }
 }
 
 public func when<T>(promises: Promise<T>...) -> Promise<[T]> {
@@ -1397,15 +1631,19 @@ public func when<T>(promises: Promise<T>...) -> Promise<[T]> {
 }
 
 public func when(promises: Promise<Void>...) -> Promise<Void> {
-    return when(promises)
+    return _when(promises)
+}
+
+public func when(promises: [Promise<Void>]) -> Promise<Void> {
+    return _when(promises)
 }
 
 public func when<U, V>(pu: Promise<U>, _ pv: Promise<V>) -> Promise<(U, V)> {
-    return when(pu.asVoid(), pv.asVoid()).then(on: zalgo) { (pu.value!, pv.value!) }
+    return _when([pu.asVoid(), pv.asVoid()]).then(on: zalgo) { (pu.value!, pv.value!) }
 }
 
 public func when<U, V, X>(pu: Promise<U>, _ pv: Promise<V>, _ px: Promise<X>) -> Promise<(U, V, X)> {
-    return when(pu.asVoid(), pv.asVoid(), px.asVoid()).then(on: zalgo) { (pu.value!, pv.value!, px.value!) }
+    return _when([pu.asVoid(), pv.asVoid(), px.asVoid()]).then(on: zalgo) { (pu.value!, pv.value!, px.value!) }
 }
 let PMKErrorDomain = "PMKErrorDomain"
 let PMKFailingPromiseIndexKey = "PMKFailingPromiseIndexKey"

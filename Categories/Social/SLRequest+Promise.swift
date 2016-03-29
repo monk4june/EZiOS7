@@ -12,19 +12,9 @@ import Social
 
 */
 extension SLRequest {
-    public func promise() -> Promise<NSData> {
-        return Promise { resolve in
-            performRequestWithHandler { (data, rsp, err) in
-                resolve(data, err)
-            }
+    public func promise() -> URLDataPromise {
+        return URLDataPromise.go(preparedURLRequest()) { completionHandler in
+            performRequestWithHandler(completionHandler)
         }
-    }
-
-    public func promise() -> Promise<NSDictionary> {
-        return promise().then(on: waldo, NSJSONFromData)
-    }
-
-    public func promise() -> Promise<NSArray> {
-        return promise().then(on: waldo, NSJSONFromData)
     }
 }

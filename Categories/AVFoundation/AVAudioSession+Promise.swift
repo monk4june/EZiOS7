@@ -16,6 +16,6 @@ extension AVAudioSession {
     public func requestRecordPermission() -> Promise<Bool> {
         return Promise { fulfill, _ in
             requestRecordPermission(fulfill)
-        }.then(on: zalgo) { $0.boolValue }
+        }
     }
 }
