@@ -128,10 +128,6 @@ import Foundation.NSError
         }
     }
 
-    func this_pipe(body: (AnyObject?) -> Void) {
-        self.pipe(body)
-    }
-
     @objc var __value: AnyObject? {
         return state.get() ?? nil
     }
@@ -185,7 +181,7 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) throws -> T) -> Promise<T> {
         return Promise(sealant: { resolve in
-            self.this_pipe { object in
+            pipe { (object: AnyObject?) -> Void in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
@@ -202,12 +198,12 @@ import Foundation.NSError
     */
     public func then(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> AnyPromise) -> Promise<AnyObject?> {
         return Promise { fulfill, reject in
-            self.this_pipe { object in
+            pipe { (object: AnyObject?) -> Void in
                 if let error = object as? NSError {
                     reject(error)
                 } else {
                     contain_zalgo(q) {
-                        body(object).this_pipe { object in
+                        body(object).pipe { (object: AnyObject?) -> Void in
                             if let error = object as? NSError {
                                 reject(error)
                             } else {
@@ -225,7 +221,7 @@ import Foundation.NSError
     */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
         return Promise(sealant: { resolve in
-            self.this_pipe { object in
+            pipe { (object: AnyObject?) -> Void in
                 if let error = object as? NSError {
                     resolve(.Rejected(error, error.token))
                 } else {
