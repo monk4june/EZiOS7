@@ -617,4 +617,3 @@ extern AnyPromise *  dispatch_promise_on(dispatch_queue_t  queue, id  block);
   #if __has_include(<PromiseKit/UIViewController+AnyPromise.h>)
   #endif
 #endif
-#pragma clang diagnostic pop
