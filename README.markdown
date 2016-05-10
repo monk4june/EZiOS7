@@ -16,6 +16,16 @@ PromiseKit 2 does not easily support iOS 7, sorry, but that’s just how things 
 * If your project is just Objective-C you ***DO*** still need the `.swift` file.
 * `git submodules` seems like a good way to manage this depedency, but just downloading the files and adding them manually works fine.
 
+# *Please* Note 00 (by StalkerRus)
+
+Building from scratch:
+* git submodule update --init
+* cd .checkout
+* checkout the version you need
+* cd ..
+* ruby .admin/update.rb
+* clean mess (PromiseKit h-file is beeing injected to m-file + some more errors and warnings)
+* Profit!
 
 # *Please* Note 1
 
