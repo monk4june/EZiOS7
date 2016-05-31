@@ -219,6 +219,47 @@ import Foundation.NSError
     /**
      Continue a Promise<T> chain from an AnyPromise.
     */
+    public func then(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> AnyPromise) -> Promise<AnyObject?> {
+        return Promise { fulfill, reject in
+            pipe { object in
+                if let error = object as? NSError {
+                    reject(error)
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe { object in
+                            if let error = object as? NSError {
+                                reject(error)
+                            } else {
+                                fulfill(object)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
+    public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
+        return Promise(passthru: { resolve in
+            pipe { object in
+                if let error = object as? NSError {
+                    resolve(.Rejected(error))
+                } else {
+                    contain_zalgo(q) {
+                        body(object).pipe(resolve)
+                    }
+                }
+            }
+        })
+    }
+}
+
+    /**
+     Continue a Promise<T> chain from an AnyPromise.
+    */
     public func then<T>(on q: dispatch_queue_t = dispatch_get_main_queue(), body: (AnyObject?) -> Promise<T>) -> Promise<T> {
         return Promise(sealant: { resolve in
             pipe { (object: AnyObject?) -> Void in
@@ -758,12 +799,12 @@ public class Promise<T> {
     }
 
     /**
-     Careful with this, it is imperative that sealant can only be called once
-     or you will end up with spurious unhandled-errors due to possible double
-     rejections and thus immediately deallocated ErrorConsumptionTokens.
-    */
-    init(@noescape sealant: ((Resolution<T>) -> Void) throws -> Void) {
-        var resolve: ((Resolution<T>) -> Void)!
+      I’d prefer this to be the designated initializer, but then there would be no
+      public designated unsealed initializer! Making this convenience would be
+      inefficient. Not very inefficient, but still it seems distasteful to me.
+     */
+    init(@noescape passthru: ((Resolution) -> Void) -> Void) {
+        var resolve: ((Resolution) -> Void)!
         state = UnsealedState(resolver: &resolve)
         do {
             try sealant(resolve)
@@ -1211,9 +1252,18 @@ public func firstly(@noescape promise: () throws -> AnyPromise) -> Promise<AnyOb
     }
 }
 
-@available(*, unavailable, message="Instead, throw")
-public func firstly<T: ErrorType>(@noescape promise: () throws -> Promise<T>) -> Promise<T> {
-    fatalError("Unavailable function")
+
+public enum ErrorPolicy {
+    case AllErrors
+    case AllErrorsExceptCancellation
+}
+
+public func race<T>(promises: Promise<T>...) -> Promise<T> {
+    return Promise(passthru: { resolve in
+        for promise in promises {
+            promise.pipe(resolve)
+        }
+    })
 }
 
 
@@ -1576,14 +1626,13 @@ private func _when<T>(promises: [Promise<T>]) -> Promise<Void> {
 
     for (index, promise) in promises.enumerate() {
         promise.pipe { resolution in
+            if !rootPromise.pending { return }
+
             dispatch_barrier_sync(barrier) {
                 switch resolution {
-                case .Rejected(let error, let token):
-                    token.consumed = true   // all errors are consumed by the parent Error.When
-                    if rootPromise.pending {
-                        progress.completedUnitCount = progress.totalUnitCount
-                        reject(Error.When(index, error))
-                    }
+                case .Rejected(let error):
+                    progress.completedUnitCount = progress.totalUnitCount
+                    reject(error)
                 case .Fulfilled:
                     guard rootPromise.pending else { return }
                     progress.completedUnitCount += 1

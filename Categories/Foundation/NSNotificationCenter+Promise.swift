@@ -21,11 +21,14 @@ extension NSNotificationCenter {
         return NSNotificationCenter.defaultCenter().once(name)
     }
 
-    public func once(name: String) -> NotificationPromise {
-        let (promise, fulfill) = NotificationPromise.go()
-        let id = addObserverForName(name, object: nil, queue: nil, usingBlock: fulfill)
-        promise.then(on: zalgo) { _ in self.removeObserver(id) }
-        return promise
+    public class func once(name: String) -> Promise<NSNotification> {
+        return Promise { fulfill, _ in
+            var id: AnyObject?
+            id = NSNotificationCenter.defaultCenter().addObserverForName(name, object: nil, queue: nil){ note in
+                fulfill(note)
+                NSNotificationCenter.defaultCenter().removeObserver(id!)
+            }
+        }
     }
 }
 

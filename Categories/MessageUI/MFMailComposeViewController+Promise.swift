@@ -1,7 +1,5 @@
 import MessageUI.MFMailComposeViewController
 import UIKit.UIViewController
-#if !COCOAPODS
-#endif
 
 /**
  To import this `UIViewController` category:
@@ -18,7 +16,7 @@ extension UIViewController {
         proxy.retainCycle = proxy
         vc.mailComposeDelegate = proxy
         presentViewController(vc, animated: animated, completion: completion)
-        proxy.promise.always {
+        proxy.promise.finally {
             self.dismissViewControllerAnimated(animated, completion: nil)
         }
         return proxy.promise

@@ -69,3 +69,40 @@ private func go(@autoclosure body: () throws -> NSURLRequest) -> URLDataPromise 
 }
 
 private let Q = NSOperationQueue()
+
+private func fetch(var request: NSURLRequest) -> Promise<(NSData, NSURLResponse)> {
+    if request.valueForHTTPHeaderField("User-Agent") == nil {
+        let rq = request.mutableCopy() as! NSMutableURLRequest
+        rq.setValue(OMGUserAgent(), forHTTPHeaderField:"User-Agent")
+        request = rq
+    }
+
+    return Promise { fulfill, prereject in
+        NSURLConnection.sendAsynchronousRequest(request, queue: Q) { rsp, data, err in
+
+            assert(!NSThread.isMainThread())
+
+            func reject(error: NSError) {
+                var info = error.userInfo ?? [:]
+                info[NSURLErrorFailingURLErrorKey] = request.URL
+                info[NSURLErrorFailingURLStringErrorKey] = request.URL?.absoluteString
+                info[PMKURLErrorFailingDataKey] = data
+                if data != nil {
+                    info[PMKURLErrorFailingStringKey] = NSString(data: data, encoding: rsp?.stringEncoding ?? NSUTF8StringEncoding)
+                }
+                info[PMKURLErrorFailingURLResponseKey] = rsp
+                prereject(NSError(domain: error.domain, code: error.code, userInfo: info))
+            }
+
+            if err != nil {
+                reject(err)
+            } else if let response = rsp as? NSHTTPURLResponse where response.statusCode < 200 || response.statusCode >= 300 {
+                reject(NSError(domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse, userInfo: [
+                    NSLocalizedDescriptionKey: "The server returned a bad HTTP response code"
+                    ]))
+            } else {
+                fulfill(data, rsp)
+            }
+        }
+    }
+}
